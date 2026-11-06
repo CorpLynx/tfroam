@@ -156,9 +156,13 @@ def test_tf_path_defaults_to_path_lookup_but_keeps_go_default_as_fallback(
     fake.write_text("")
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", str(tmp_path))
-    assert resolve_tf_path("/bin/terraform", explicit=False) == str(fake)  # not given: look on PATH
+
+    def same(found: str, expected: Path) -> bool:  # Windows may report terraform.EXE for terraform.exe
+        return os.path.normcase(found) == os.path.normcase(str(expected))
+
+    assert same(resolve_tf_path("/bin/terraform", explicit=False), fake)  # not given: look on PATH
     assert resolve_tf_path("/bin/terraform", explicit=True) == "/bin/terraform"  # explicit: as given
-    assert resolve_tf_path("terraform", explicit=True) == str(fake)  # bare name: looked up
+    assert same(resolve_tf_path("terraform", explicit=True), fake)  # bare name: looked up
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     assert resolve_tf_path("/bin/terraform", explicit=False) == "/bin/terraform"  # Go default fallback
     assert parse_args(["-tfPath", "x"]).given == {"tfPath"}
