@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"sub_module","Source":"./nested-module","Dir":"nested-module"},{"Key":"sub_module.remote_module","Source":"git::https://github.com/im2nguyen/rover.git//example/random-test/random-name","Dir":".terraform/modules/sub_module.remote_module/example/random-test/random-name"}]}
