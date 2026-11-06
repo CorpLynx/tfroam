@@ -49,3 +49,22 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   directory (`plan.json`; create an empty dir at test time). Go logs "Continuing without loading
   module from filesystem: per_region" for the module call in this mode.
 - The `.terraform/modules/remote` fixture dir is trimmed to the one `.tf` file the module uses.
+
+## Step 4a: rso (`rover/rso.py`) and config loader (`rover/config.py`)
+
+- `rso.go` embeds `tfconfig.Module` (terraform-config-inspect) in the overview, so a port of that
+  loader was required: `rover/config.py`. It uses python-hcl2's **parse tree** (not its dict output,
+  which can't tell bare object keys from strings and mangles heredocs) for block start lines, and a
+  small constant evaluator for `default`, `description`, `sensitive`, `source`, `version`, etc.
+  Output matches the Go goldens for all 16 module configs across the 8 fixtures.
+- Faithful quirks: a variable `default` that isn't a constant makes the whole module "unloadable"
+  (Go emits an error diagnostic and rover logs "Continuing without loading module from
+  filesystem"); `default` is always emitted (`null` when absent); `required_providers` entries with
+  an object that has no keys are dropped; resources with no `provider` get the type prefix.
+- Gaps vs the Go loader: `*.tf.json` files (reported as an error, module not loaded), the legacy-HCL
+  fallback parser, and constant arithmetic like `1 + 2` in a default.
+- Go panics when an output's `before_sensitive`/`after_sensitive` is not a bool (object-shaped
+  sensitivity). The port ignores non-bool markers instead; the value is left unmasked.
+- `generate_resource_overview` mutates `plan.output_changes` in place, as Go does; `plan.js` shows
+  the "Sensitive Value" placeholder because the plan is serialized afterwards.
+- `StateResource.values` is now `None` when absent (Go nil map) so empty-vs-missing matches.

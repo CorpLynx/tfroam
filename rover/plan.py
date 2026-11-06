@@ -185,7 +185,7 @@ class StateResource:
     index: Any = None
     provider_name: str = ""
     schema_version: int = 0
-    values: dict[str, Any] = field(default_factory=dict)
+    values: dict[str, Any] | None = None  # None = absent (Go nil map), {} = present but empty
     sensitive_values: Any = None
     depends_on: list[str] = field(default_factory=list)
     tainted: bool = False
@@ -203,7 +203,7 @@ class StateResource:
             index=d.get("index"),
             provider_name=d.get("provider_name") or "",
             schema_version=int(d.get("schema_version") or 0),
-            values=values if isinstance(values, dict) else {},
+            values=values if isinstance(values, dict) else None,
             sensitive_values=d.get("sensitive_values"),
             depends_on=_str_list(d.get("depends_on")),
             tainted=bool(d.get("tainted")),
