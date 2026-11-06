@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal, TextIO
@@ -219,13 +220,30 @@ def run(opts: Options) -> int:
 
     from .server import start_server
 
+    if opts.gen_image:
+        from .screenshot import INSTALL_HINT, playwright_available
+
+        if not playwright_available():
+            raise RoverError(INSTALL_HINT)
+
     try:
         server = start_server(opts.ip_port, assets)
     except (OSError, ValueError) as exc:
         raise RoverError(f"Could not start server: {exc}") from exc
 
+    image_error: list[Exception] = []
     if opts.gen_image:
-        raise RoverError("-genImage is not implemented yet")
+        from .screenshot import ImageError, screenshot
+
+        def take_screenshot() -> None:
+            try:
+                screenshot(opts.ip_port)
+            except ImageError as exc:
+                image_error.append(exc)
+            finally:
+                server.shutdown()  # like Go: stop serving once the image is saved (or failed)
+
+        threading.Thread(target=take_screenshot, daemon=True).start()
 
     try:
         server.serve_forever()
@@ -233,6 +251,11 @@ def run(opts: Options) -> int:
         pass
     finally:
         server.server_close()
+
+    if opts.gen_image:
+        if image_error:
+            raise RoverError(str(image_error[0]))
+        log.info("Server shut down.")
     return 0
 
 

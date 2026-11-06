@@ -118,3 +118,23 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   `-planJSONPath` works without Terraform installed.
 - Verified in headless Chromium: the served page and the unzipped `index.html` opened from `file://`
   both render the random-test graph with no console errors.
+
+## Step 6: image mode (`rover/screenshot.py`)
+
+- Same flow as chromedp: open the served page, wait for `#cytoscape-div`, click `#saveGraph` (the UI
+  downloads `rover.svg`), save the download to `./rover.svg` (the Go version ignores `-name` here and
+  always writes `./rover.svg`), log "Image generation complete.", then shut the server down and log
+  "Server shut down.". 60 s overall timeout. A failure exits 1.
+- **Differs from the spec text, follows Go:** the server listens on `-ipPort` (default `0.0.0.0:9000`),
+  not a free port; the browser is pointed at it (a wildcard host becomes `127.0.0.1`, since `0.0.0.0` is not
+  connectable everywhere). The spec's "free port in a background thread" is not what Go does.
+- Playwright is optional (`pip install 'rover[image]'`); without it `-genImage` fails fast, before the server
+  starts, with an install hint. Browser: `ROVER_BROWSER_PATH` if set, else Playwright's own Chromium, else a
+  system `chromium`/`google-chrome` on `PATH` (what the Docker image uses). `--no-sandbox` is added when
+  running as root.
+- **SVG comparison:** the layout is not reproducible even in Go (two Go runs on the same input differ in
+  coordinates and gradient ids, because of Go's random map order). What *is* stable and what the test
+  checks against the committed Go reference `tests/golden/random-test/rover.svg`: element counts per tag,
+  all text labels, and the canvas size. The Python SVG matches the Go SVG on all three.
+- Repo hygiene: 25 `__pycache__/*.pyc` files had been committed by mistake in earlier steps; they are now
+  untracked and `.gitignore` is in place.
