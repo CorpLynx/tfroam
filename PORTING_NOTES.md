@@ -68,3 +68,14 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - `generate_resource_overview` mutates `plan.output_changes` in place, as Go does; `plan.js` shows
   the "Sensitive Value" placeholder because the plan is serialized afterwards.
 - `StateResource.values` is now `None` when absent (Go nil map) so empty-vs-missing matches.
+
+## Step 4b: map (`rover/map.py`)
+
+- Faithful quirks kept: `line` and `required` are pointers in Go, so they're emitted even when `0`/`false`;
+  `AddFileIfNotExists` builds `source` as `"<module source>/<file>"`, and module nodes have no source, so
+  file nodes under a module get `"/main.tf"`; locals are collected only from resource and module-call
+  expressions (not data sources, and not from nested blocks); outputs/variables fall back to the plan's
+  configuration only when the module's `.tf` files could not be loaded.
+- New fixture `noconfig-test`: a working dir whose `main.tf` has a syntax error, so rover logs "Could not
+  load configuration" and puts everything under "unknown file". (Go refuses a working dir that doesn't
+  exist at all: "error initialising Terraform with workdir".)

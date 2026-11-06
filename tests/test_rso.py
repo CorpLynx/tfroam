@@ -7,21 +7,12 @@ import pytest
 from rover.plan import Plan
 from rover.rso import generate_resource_overview
 
-from .golden_util import FIXTURES, GOLDEN, load_js
-
-FIXTURE_DIR = Path(__file__).parent / "fixtures"
+from .golden_util import FIXTURES, GOLDEN, enter_fixture, load_js
 
 
 def _run(fixture: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Plan, dict[str, object]]:
     plan = Plan.from_json(load_js(GOLDEN / fixture / "plan.js"))
-    if fixture == "plan-only-test":
-        # Go ran this with -workingDir empty: a directory with no .tf files.
-        (tmp_path / "empty").mkdir()
-        monkeypatch.chdir(tmp_path)
-        working_dir = "empty"
-    else:
-        monkeypatch.chdir(FIXTURE_DIR / fixture)
-        working_dir = "."
+    working_dir = enter_fixture(fixture, tmp_path, monkeypatch)
     return plan, generate_resource_overview(plan, working_dir).to_json()
 
 
