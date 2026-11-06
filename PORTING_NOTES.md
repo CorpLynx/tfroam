@@ -138,3 +138,32 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   all text labels, and the canvas size. The Python SVG matches the Go SVG on all three.
 - Repo hygiene: 25 `__pycache__/*.pyc` files had been committed by mistake in earlier steps; they are now
   untracked and `.gitignore` is in place.
+
+## Step 7: packaging, Docker, CI, running without a container
+
+- **Native install is a supported path**, not just Docker: `pip`/`pipx install rover`. Verified in a clean
+  virtualenv outside the source tree: the wheel carries the UI (`rover/ui/dist`, 20 files), `py.typed`, the
+  licence and the `rover` console script; only `python-hcl2`, `lark` and `regex` are pulled in (no Node,
+  no Playwright unless `[image]`).
+- **`-tfPath` default:** Go's `/bin/terraform` only exists in the container. Without `-tfPath` the port
+  uses `terraform` from `PATH` and falls back to `/bin/terraform`; a bare `-tfPath terraform` is looked up
+  on `PATH`; anything with a directory part is used as given. Verified with a real Terraform on `PATH`.
+- **Dependencies:** `python-hcl2>=8.1.4,<9` (named in the spec) and `lark` (its parser library, imported
+  directly because `config.py` reads the parse tree, so it is declared rather than relied on
+  transitively). The `<9` cap is deliberate: the tree shape is python-hcl2 internals.
+- **Windows:** JSON paths are normalised to forward slashes (`Module.path`, module locations, file
+  positions). I could only check this logic by unit test; the Windows CI job is the real check.
+  The fake-Terraform shell-script tests are skipped on Windows. `.gitattributes` pins LF line endings for
+  fixtures and goldens and leaves the bundled UI untouched (`-text`).
+- **Docker:** Debian-based `python:3.12-slim` (Playwright has no musl/Alpine wheels, so the upstream
+  Alpine base would not work) with `/bin/terraform` copied from `hashicorp/terraform:$TF_VERSION`,
+  Chromium, git and openssh (module sources), `WORKDIR /src`, `ENTRYPOINT ["rover"]`. No Node stage: the
+  frontend is already built. **The image has not been built in the sandbox (no Docker daemon); the CI
+  `docker` job builds it and runs the README command shapes, including `-genImage`.**
+- **CI** (`.github/workflows/ci.yml`): ruff, `ruff format --check`, `mypy --strict`, pytest on
+  Linux/macOS/Windows x Python 3.11/3.13 (real-Terraform test enabled on Linux/macOS); a real-browser job
+  where the screenshot tests must not skip; a wheel build + clean-venv install job; a Docker job.
+- **Distribution name:** `rover` follows the spec (`pip install rover[image]`), but that name on PyPI is
+  probably taken: check before publishing (an alternative such as `rover-tf` keeps the `rover` import and
+  command unchanged).
+- Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `rover/ui/dist`.

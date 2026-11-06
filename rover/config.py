@@ -627,9 +627,14 @@ def _is_ignored(name: str) -> bool:
     return name.startswith(".") or name.endswith("~") or (name.startswith("#") and name.endswith("#"))
 
 
+def to_posix(path: str, sep: str = os.sep) -> str:
+    """Forward slashes in the JSON on every platform (the frontend expects them; spec: Windows paths)."""
+    return path.replace("\\", "/") if sep == "\\" else path
+
+
 def load_module(directory: str) -> Module:
     """Port of ``tfconfig.LoadModule``: never raises; check ``has_errors()``."""
-    mod = Module(path=directory)
+    mod = Module(path=to_posix(directory))
     loader = _Loader(mod)
     try:
         names = sorted(os.listdir(directory))

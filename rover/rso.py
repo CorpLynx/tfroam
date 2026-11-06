@@ -112,7 +112,7 @@ def populate_module_locations(module_json_file: str, working_dir: str, locations
     modules = data.get("Modules") if isinstance(data, dict) else None
     for loc in modules or []:
         if isinstance(loc, dict):
-            locations[str(loc.get("Key") or "")] = f"{working_dir}/{loc.get('Dir') or ''}"
+            locations[str(loc.get("Key") or "")] = f"{config.to_posix(working_dir)}/{loc.get('Dir') or ''}"
 
 
 def populate_configs(parent: str, parent_key: str, rso: ResourcesOverview, module: ConfigModule | None) -> None:

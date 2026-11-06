@@ -6,6 +6,6 @@ __pycache__/
 rover.svg
 rover.zip
 *.egg-info/
-dist/
-build/
+/dist/
+/build/
 !tests/golden/**/rover.svg

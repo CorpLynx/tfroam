@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 import threading
 import time
 import urllib.request
@@ -94,9 +92,17 @@ def test_image_failure_exits_nonzero(
 
 
 def _browser_ready() -> bool:
+    """True when a browser can really be launched (Playwright's own, ROVER_BROWSER_PATH, or a system one)."""
     if not playwright_available():
         return False
-    return bool(os.environ.get(screenshot.BROWSER_ENV)) or any(shutil.which(n) for n in screenshot._SYSTEM_BROWSERS)
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as pw:
+            screenshot._launch(pw).close()
+    except Exception:
+        return False
+    return True
 
 
 def _signature(svg: str) -> tuple[Counter[str], list[str], tuple[str, str]]:

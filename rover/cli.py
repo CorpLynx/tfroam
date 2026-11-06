@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import sys
 import threading
 from collections.abc import Sequence
@@ -79,6 +80,7 @@ class Options:
     tf_vars_files: list[str] = field(default_factory=list)
     tf_vars: list[str] = field(default_factory=list)
     tf_backend_configs: list[str] = field(default_factory=list)
+    given: set[str] = field(default_factory=set)  # flags that were passed explicitly
 
 
 _ATTRS = {
@@ -145,6 +147,7 @@ def parse_args(argv: Sequence[str]) -> Options:
         if spec is None:
             raise UsageError(f"flag provided but not defined: -{name}")
         attr = _ATTRS[name]
+        opts.given.add(name)
         if spec.kind == "bool":
             if has_value:
                 setattr(opts, attr, _bool_value(value, name))
@@ -165,6 +168,21 @@ def parse_args(argv: Sequence[str]) -> Options:
         else:
             setattr(opts, attr, value)
     return opts
+
+
+def resolve_tf_path(path: str, explicit: bool) -> str:
+    """Find the Terraform binary.
+
+    Go defaults ``-tfPath`` to ``/bin/terraform``, which is right inside the container
+    but not on a normal machine. Unless ``-tfPath`` is given, use ``terraform`` from
+    ``PATH`` and fall back to the Go default. A bare name (``-tfPath terraform``) is
+    also looked up on ``PATH``; anything with a directory part is used as given.
+    """
+    if not explicit:
+        return shutil.which("terraform") or path
+    if os.sep not in path and "/" not in path:
+        return shutil.which(path) or path
+    return path
 
 
 def split_list(values: Sequence[str]) -> list[str]:
@@ -198,7 +216,7 @@ def run(opts: Options) -> int:
 
     assets = generate_assets(
         working_dir=opts.working_dir,
-        tf_path=opts.tf_path,
+        tf_path=resolve_tf_path(opts.tf_path, "tfPath" in opts.given),
         plan_path=_absolute(opts.plan_path),
         plan_json_path=_absolute(opts.plan_json_path),
         workspace_name=opts.workspace_name,

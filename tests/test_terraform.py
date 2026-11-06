@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import stat
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,8 @@ if cmd == "show":
 
 @pytest.fixture
 def fake_tf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    if sys.platform == "win32":
+        pytest.skip("the fake terraform is a shebang script")
     binary = tmp_path / "terraform"
     binary.write_text(FAKE)
     binary.chmod(binary.stat().st_mode | stat.S_IEXEC)

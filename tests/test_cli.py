@@ -145,3 +145,27 @@ def test_serve_end_to_end_in_a_subprocess(tmp_path: Path) -> None:
     ]
     positions = [err.index(msg) for msg in order]
     assert positions == sorted(positions)
+
+
+def test_tf_path_defaults_to_path_lookup_but_keeps_go_default_as_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rover.cli import resolve_tf_path
+
+    fake = tmp_path / ("terraform.exe" if sys.platform == "win32" else "terraform")
+    fake.write_text("")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert resolve_tf_path("/bin/terraform", explicit=False) == str(fake)  # not given: look on PATH
+    assert resolve_tf_path("/bin/terraform", explicit=True) == "/bin/terraform"  # explicit: as given
+    assert resolve_tf_path("terraform", explicit=True) == str(fake)  # bare name: looked up
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    assert resolve_tf_path("/bin/terraform", explicit=False) == "/bin/terraform"  # Go default fallback
+    assert parse_args(["-tfPath", "x"]).given == {"tfPath"}
+
+
+def test_json_paths_use_forward_slashes_on_windows() -> None:
+    from rover.config import to_posix
+
+    assert to_posix("C:\\work\\.\\mod", sep="\\") == "C:/work/./mod"
+    assert to_posix("a/b", sep="/") == "a/b"
