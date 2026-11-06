@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -329,6 +330,38 @@ def generate_edges(rso: ResourcesOverview, map_obj: Map) -> list[Edge]:
             edges.append(edge_map[eid])
             seen.add(eid)
     return edges
+
+
+# What `-hide` accepts, mapped to the node types it removes.
+HIDEABLE = {"locals": RESOURCE_TYPE_LOCAL, "variables": RESOURCE_TYPE_VARIABLE, "outputs": RESOURCE_TYPE_OUTPUT}
+
+
+def filter_graph(graph: Graph, hide: Iterable[str]) -> Graph:
+    """Drop whole kinds of nodes (and every edge touching them) to make big graphs readable.
+
+    This is an addition to the original (off by default, so the default output is identical to
+    the Go version). Locals, variables and outputs are the usual source of clutter: nearly every
+    resource references ``local.name`` or a variable, so they produce most of the wiring.
+    Files left with nothing in them are removed too.
+    """
+    kinds = list(dict.fromkeys(hide))
+    unknown = [k for k in kinds if k not in HIDEABLE]
+    if unknown:
+        raise ValueError(f"unknown -hide value {unknown[0]!r} (valid: {', '.join(sorted(HIDEABLE))})")
+    if not kinds:
+        return graph
+
+    hidden_types = {HIDEABLE[k] for k in kinds}
+    nodes = [n for n in graph.nodes if n.data.type not in hidden_types]
+    while True:  # a file node whose contents were all hidden is just an empty box
+        parents = {n.data.parent for n in nodes}
+        kept = [n for n in nodes if not (n.data.type == RESOURCE_TYPE_FILE and n.data.id not in parents)]
+        if len(kept) == len(nodes):
+            break
+        nodes = kept
+    ids = {n.data.id for n in nodes}
+    edges = [e for e in graph.edges if e.data.source in ids and e.data.target in ids]
+    return Graph(nodes=nodes, edges=edges)
 
 
 def generate_graph(rso: ResourcesOverview, map_obj: Map) -> Graph:

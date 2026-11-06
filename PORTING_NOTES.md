@@ -170,3 +170,13 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   package `rover`; it was renamed so installing `tfroam` cannot collide with another distribution that
   provides a top-level `rover` module.
 - Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `tfroam/ui/dist`.
+
+## Addition beyond the port: `-hide`
+
+- `-hide locals,variables,outputs` (comma-separated or repeated; the Go version has no such flag) removes those
+  node kinds from the **graph** document, every edge touching them, and any file box left empty. The map and
+  rso documents are untouched. Default is off, so all golden comparisons still hold; the filter is applied
+  after the (Go-identical) graph is built, in `tfroam/graph.py:filter_graph`.
+- Motivation: on a real 61-resource, 3-module AWS plan, `local.name` and variable references account for
+  roughly half of the 153 edges, which makes the picture hard to read. The frontend is unchanged.
+- An unknown value exits 1 with the list of valid ones.

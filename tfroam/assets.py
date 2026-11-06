@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .graph import Graph, generate_graph
+from .graph import Graph, filter_graph, generate_graph
 from .map import Map, generate_map
 from .plan import Plan, PlanError
 from .rso import ResourcesOverview, generate_resource_overview
@@ -48,6 +48,7 @@ def generate_assets(
     tf_vars: Sequence[str] = (),
     tf_backend_configs: Sequence[str] = (),
     show_sensitive: bool = False,
+    hide: Sequence[str] = (),
 ) -> Assets:
     try:
         plan = get_plan(
@@ -68,7 +69,10 @@ def generate_assets(
     except PlanError as exc:
         raise RoverError(str(exc)) from exc
     map_obj = generate_map(rso)
-    graph = generate_graph(rso, map_obj)
+    try:
+        graph = filter_graph(generate_graph(rso, map_obj), hide)
+    except ValueError as exc:
+        raise RoverError(str(exc)) from exc
     return Assets(plan=plan, rso=rso, map=map_obj, graph=graph)
 
 

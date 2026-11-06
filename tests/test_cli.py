@@ -173,3 +173,30 @@ def test_json_paths_use_forward_slashes_on_windows() -> None:
 
     assert to_posix("C:\\work\\.\\mod", sep="\\") == "C:/work/./mod"
     assert to_posix("a/b", sep="/") == "a/b"
+
+
+def test_hide_flag_reaches_the_graph(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json as _json
+
+    plan = tmp_path / "plan.json"
+    plan.write_text(_json.dumps(load_js(GOLDEN / "random-test" / "plan.js")))
+    monkeypatch.chdir(FIXTURE_DIR / "random-test")
+    base = ["-workingDir", ".", "-planJSONPath", str(plan), "-standalone", "true"]
+
+    def graph_types(zip_name: str, *extra: str) -> set[str]:
+        assert main([*base, "-zipFileName", str(tmp_path / zip_name), *extra]) == 0
+        with zipfile.ZipFile(tmp_path / f"{zip_name}.zip") as zf:
+            graph = _json.loads(zf.read("graph.js").decode().split("=", 1)[1])
+        return {n["data"].get("type", "") for n in graph["nodes"]}
+
+    assert {"variable", "output", "locals"} <= graph_types("full")  # default: unchanged
+    assert graph_types("simple", "-hide", "locals,variables") & {"variable", "locals"} == set()
+    assert "output" in graph_types("kept-outputs", "-hide", "locals", "-hide", "variables")  # repeatable too
+
+
+def test_hide_with_a_bad_value_fails_clearly(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps(load_js(GOLDEN / "simple-test" / "plan.js")))
+    code = main(["-workingDir", str(FIXTURE_DIR / "simple-test"), "-planJSONPath", str(plan), "-hide", "nope"])
+    assert code == 1
+    assert "unknown -hide value 'nope'" in capsys.readouterr().err

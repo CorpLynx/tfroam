@@ -109,3 +109,65 @@ def test_terraform_workspace_gets_its_own_node(tmp_path: Path) -> None:
         "classes": "locals",
     }
     assert any(e["data"]["target"] == "terraform.workspace" for e in graph["edges"])
+
+
+def _graph_for(fixture: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    from tfroam.graph import Graph
+
+    plan = Plan.from_json(load_js(GOLDEN / fixture / "plan.js"))
+    rso = generate_resource_overview(plan, enter_fixture(fixture, tmp_path, monkeypatch))
+    graph: Graph = generate_graph(rso, generate_map(rso))
+    return graph
+
+
+def test_hide_nothing_returns_the_same_graph(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tfroam.graph import filter_graph
+
+    graph = _graph_for("random-test", tmp_path, monkeypatch)
+    assert filter_graph(graph, []).to_json() == graph.to_json()
+
+
+@pytest.mark.parametrize(
+    ("hide", "gone"),
+    [
+        (["locals"], {"locals"}),
+        (["variables"], {"variable"}),
+        (["outputs"], {"output"}),
+        (["locals", "variables", "outputs"], {"locals", "variable", "output"}),
+    ],
+)
+def test_hide_removes_those_nodes_and_every_edge_touching_them(
+    hide: list[str], gone: set[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tfroam.graph import filter_graph
+
+    graph = _graph_for("random-test", tmp_path, monkeypatch)
+    before = {n.data.type for n in graph.nodes}
+    assert gone <= before, "fixture should contain what we hide"
+
+    out = filter_graph(graph, hide)
+    assert not gone & {n.data.type for n in out.nodes}
+    ids = {n.data.id for n in out.nodes}
+    assert all(e.data.source in ids and e.data.target in ids for e in out.edges)  # no dangling edges
+    assert len(out.edges) < len(graph.edges)
+    # everything else is untouched
+    kept = {n.data.id: n.to_json() for n in out.nodes}
+    assert all(kept[n.data.id] == n.to_json() for n in graph.nodes if n.data.id in kept)
+
+
+def test_hide_prunes_files_that_end_up_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tfroam.graph import filter_graph
+
+    graph = _graph_for("random-test", tmp_path, monkeypatch)
+    assert any(n.data.type == "file" and n.data.label == "unknown file" for n in graph.nodes)  # holds only a local
+    out = filter_graph(graph, ["locals"])
+    assert not any(n.data.label == "unknown file" for n in out.nodes)
+    parents = {n.data.parent for n in out.nodes}
+    assert all(n.data.id in parents for n in out.nodes if n.data.type == "file")  # no empty file boxes
+
+
+def test_hide_rejects_unknown_values() -> None:
+    from tfroam.graph import Graph, filter_graph
+
+    with pytest.raises(ValueError, match="unknown -hide value 'nope' .*locals, outputs, variables"):
+        filter_graph(Graph(), ["nope"])

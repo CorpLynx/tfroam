@@ -90,6 +90,20 @@ Writes `./rover.svg`:
 $ rover -genImage true
 ```
 
+### Making a big graph easier to read
+
+Almost every resource references a local or a variable, so those produce most of the lines. Hide them (and
+every line touching them) with `-hide`; it works for the live view, `-standalone` and `-genImage`:
+
+```
+$ rover -hide locals,variables              # resources, modules and outputs
+$ rover -hide locals,variables,outputs      # just resources and what depends on what
+```
+
+On a three-account AWS network (61 resources) the first removes about half of the 153 lines and the second
+about 60%. The module/file explorer is unaffected. This is an addition to the original Rover; without
+`-hide` the output is identical to it.
+
 ### Variables, backends and workspaces
 
 ```
@@ -133,6 +147,7 @@ The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=v
 | `-tfVar` | `key=value` variable for `plan` (repeatable) | |
 | `-workspaceName` | Workspace to select | |
 | `-showSensitive` | Show sensitive output values | `false` |
+| `-hide` | Hide kinds of nodes in the graph: `locals`, `variables`, `outputs` (comma-separated or repeated) | |
 | `-standalone` | Write `<zipFileName>.zip` and exit | `false` |
 | `-zipFileName` | Name of the standalone zip (without `.zip`) | `rover` |
 | `-genImage` | Save `./rover.svg` and exit | `false` |

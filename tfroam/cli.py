@@ -52,6 +52,9 @@ FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec("tfVarsFile", "list", "", "Path to *.tfvars files"),
     FlagSpec("tfVar", "list", "", "Terraform variable (key=value)"),
     FlagSpec("tfBackendConfig", "list", "", "Path to *.tfbackend files"),
+    FlagSpec(
+        "hide", "list", "", "Hide kinds of nodes in the graph to make it easier to read: locals, variables, outputs"
+    ),
 )
 _BY_NAME = {f.name: f for f in FLAGS}
 
@@ -80,6 +83,7 @@ class Options:
     tf_vars_files: list[str] = field(default_factory=list)
     tf_vars: list[str] = field(default_factory=list)
     tf_backend_configs: list[str] = field(default_factory=list)
+    hide: list[str] = field(default_factory=list)
     given: set[str] = field(default_factory=set)  # flags that were passed explicitly
 
 
@@ -102,6 +106,7 @@ _ATTRS = {
     "tfVarsFile": "tf_vars_files",
     "tfVar": "tf_vars",
     "tfBackendConfig": "tf_backend_configs",
+    "hide": "hide",
 }
 
 
@@ -224,6 +229,7 @@ def run(opts: Options) -> int:
         tf_vars=split_list(opts.tf_vars),
         tf_backend_configs=split_list(opts.tf_backend_configs),
         show_sensitive=opts.show_sensitive,
+        hide=split_list(opts.hide),
     )
     log.info("Done generating assets.")
 
