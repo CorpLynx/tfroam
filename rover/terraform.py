@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Sequence
-from pathlib import Path
 
 from .plan import Plan, PlanError
 
@@ -51,8 +50,18 @@ class Terraform:
     def __init__(self, working_dir: str | os.PathLike[str], tf_path: str | os.PathLike[str]) -> None:
         self.working_dir = str(working_dir)
         self.tf_path = str(tf_path)
-        if not Path(self.tf_path).is_file():
-            raise TerraformError(f"Terraform binary not found at {self.tf_path}")
+        # Like terraform-exec's NewTerraform: the working directory must exist and a binary path
+        # must be given, but the binary itself is only needed once a command runs
+        # (so -planJSONPath works without Terraform installed).
+        if not self.working_dir:
+            raise TerraformError("Terraform cannot be initialised with empty workdir")
+        if not os.path.exists(self.working_dir):
+            raise TerraformError(
+                f"error initialising Terraform with workdir {self.working_dir}: "
+                f"stat {self.working_dir}: no such file or directory"
+            )
+        if not self.tf_path:
+            raise TerraformError("NewTerraform: please supply the path to a Terraform executable using execPath")
 
     def _run(self, *args: str, allowed_codes: Sequence[int] = (0,)) -> str:
         try:

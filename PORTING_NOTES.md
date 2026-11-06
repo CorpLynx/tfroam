@@ -90,3 +90,31 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   `module.`/`data.` colours follow the substring order in `addEdges`; a `terraform.workspace` reference
   adds a synthetic `locals` node parented to the base path.
 - Go would panic on an output whose configuration has no expression; the port skips it.
+
+## Step 5: server, standalone zip, CLI
+
+- **Frontend:** `rover/ui/dist` is upstream's committed `ui/dist` at the pinned commit, verbatim
+  (MIT; see `LICENSE.rover`). A fresh `npm ci && npm run build` of the upstream source in this sandbox
+  produced the same code, same file sizes and identical vendor/CSS bundles; only `app.js` got a different
+  content hash (it only changes the `sourceMappingURL` comment). `scripts/build_ui.sh` redoes the build.
+- **Zip:** every frontend file in the generated zip is byte-identical to the Go zip's (file order too),
+  including the `index.html` rewrite. Go's `strings.Split(html, "</head>")` drops the closing `</head>`
+  tag and the three injected script tags are separated by `\n\t\t`; both are reproduced. `plan.js` is
+  written but `index.html` does not load it (as in Go). The data files are JSON-equivalent to Go's;
+  `graph.js` list order differs (see graph notes).
+- **Server:** stdlib `ThreadingHTTPServer`, no new dependency. `/health`, `/api/{plan,rso,map,graph}`
+  with `Access-Control-Allow-Origin: *`, an unknown `/api/x` answers 200 with Go's help text. The Go
+  version sets `Content-Type` after writing, so it is ignored and browsers sniff it; the port sends
+  `application/json` properly. Requests are not logged (Go doesn't either).
+- **CLI:** Go-`flag` syntax (`-name value`, `-name=value`, `--name`, parsing stops at the first
+  non-flag). A bare bool flag is true; the README's `-standalone true` / `-genImage true` work because a
+  following literal `true`/`false` is consumed (Go would treat `false` as a stray argument and still set
+  the flag true: the port sets it false). Repeated `-tfVar`/`-tfVarsFile`/`-tfBackendConfig` are joined with
+  `,` and re-split like Go, so a value containing a comma is split (Go bug, kept).
+- `-tfcOrg`, `-tfcWorkspace`, `-tfcNewRun` are accepted but exit 1 with a clear message.
+- `-genImage` is accepted but not implemented until step 6.
+- **Terraform binary check:** like terraform-exec, only the working directory (must exist) and a
+  non-empty `-tfPath` are validated up front; a missing binary only fails when a command runs, so
+  `-planJSONPath` works without Terraform installed.
+- Verified in headless Chromium: the served page and the unzipped `index.html` opened from `file://`
+  both render the random-test graph with no console errors.

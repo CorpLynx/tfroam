@@ -103,8 +103,13 @@ def test_plan_path_uses_show(fake_tf: tuple[Path, Path], tmp_path: Path) -> None
 
 
 def test_missing_binary_and_bad_json(tmp_path: Path) -> None:
-    with pytest.raises(TerraformError):
-        Terraform(tmp_path, tmp_path / "nope")
+    tf = Terraform(tmp_path, tmp_path / "nope")  # binary is only needed once a command runs
+    with pytest.raises(TerraformError, match="unable to run"):
+        tf.init()
+    with pytest.raises(TerraformError, match="error initialising Terraform with workdir"):
+        Terraform(tmp_path / "missing-dir", "terraform")
+    with pytest.raises(TerraformError, match="please supply the path"):
+        Terraform(tmp_path, "")
     bad = tmp_path / "bad.json"
     bad.write_text("{not json")
     with pytest.raises(PlanError, match="Unable to read Plan"):
