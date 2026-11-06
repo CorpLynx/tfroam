@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from rover.plan import Plan
-from rover.rso import generate_resource_overview
+from tfroam.plan import Plan
+from tfroam.rso import generate_resource_overview
 
 from .golden_util import FIXTURES, GOLDEN, enter_fixture, load_js
 
@@ -74,7 +74,7 @@ def test_missing_config_dir_and_modules_json_still_builds(tmp_path: Path) -> Non
 
 
 def test_plan_without_configuration_is_an_error() -> None:
-    from rover.plan import PlanError
+    from tfroam.plan import PlanError
 
     with pytest.raises(PlanError):
         generate_resource_overview(Plan.from_json({"format_version": "1.2"}), ".")

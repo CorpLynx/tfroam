@@ -28,7 +28,7 @@ from .rso import (
     ResourcesOverview,
 )
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 VARIABLE_COLOR = "#1d7ada"
 OUTPUT_COLOR = "#ffc107"

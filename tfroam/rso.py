@@ -27,7 +27,7 @@ from .plan import (
     StateModule,
 )
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 RESOURCE_TYPE_RESOURCE = "resource"
 RESOURCE_TYPE_DATA = "data"

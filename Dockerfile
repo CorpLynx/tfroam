@@ -17,7 +17,7 @@ FROM python:${PYTHON_VERSION}-slim AS build
 WORKDIR /build
 RUN pip install --no-cache-dir build
 COPY pyproject.toml README.md LICENSE ./
-COPY rover ./rover
+COPY tfroam ./tfroam
 RUN python -m build --wheel --outdir /dist
 
 # Release image

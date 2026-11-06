@@ -163,7 +163,7 @@ More detail, including every quirk deliberately kept, is in [PORTING_NOTES.md](P
 
 ```
 $ pip install -e '.[dev,image]'
-$ ruff check . && ruff format --check . && mypy --strict rover tests && pytest
+$ ruff check . && ruff format --check . && mypy --strict tfroam tests && pytest
 ```
 
 The tests compare Rover's output with files produced by the original Go program

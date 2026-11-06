@@ -17,7 +17,7 @@ from urllib.parse import unquote, urlsplit
 from .assets import Assets, dumps_json
 from .ui import dist
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 _CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",

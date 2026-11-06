@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from rover.plan import PlanError
-from rover.terraform import Terraform, TerraformError, get_plan, load_plan_json
+from tfroam.plan import PlanError
+from tfroam.terraform import Terraform, TerraformError, get_plan, load_plan_json
 
 from .golden_util import FIXTURES, GOLDEN, load_js
 

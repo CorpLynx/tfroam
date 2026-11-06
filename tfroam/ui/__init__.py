@@ -8,4 +8,4 @@ from importlib.resources.abc import Traversable
 
 def dist() -> Traversable:
     """Root of the bundled Vue build (``index.html``, ``js/``, ``css/``, ``img/``)."""
-    return files("rover.ui").joinpath("dist")
+    return files("tfroam.ui").joinpath("dist")

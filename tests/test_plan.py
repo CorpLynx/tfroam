@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from rover.plan import Plan, PlanError
+from tfroam.plan import Plan, PlanError
 
 from .golden_util import FIXTURES, GOLDEN, load_js
 

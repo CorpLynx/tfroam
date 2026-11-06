@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from rover.assets import Assets
-from rover.graph import generate_graph
-from rover.map import generate_map
-from rover.plan import Plan
-from rover.rso import generate_resource_overview
+from tfroam.assets import Assets
+from tfroam.graph import generate_graph
+from tfroam.map import generate_map
+from tfroam.plan import Plan
+from tfroam.rso import generate_resource_overview
 
 from .golden_util import GOLDEN, enter_fixture, load_js
 

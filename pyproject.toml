@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
-# python-hcl2 supplies the HCL parse tree; rover reads that tree directly (for line numbers),
+# python-hcl2 supplies the HCL parse tree; tfroam reads that tree directly (for line numbers),
 # so lark (its parser library) is declared explicitly and python-hcl2 is capped below the
 # next major version.
 dependencies = [
@@ -39,8 +39,8 @@ dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "build>=1.0", "playwright>=1.40"]
 
 # `rover` is the original command (README, Docker entrypoint, existing scripts); `tfroam` is the same program.
 [project.scripts]
-rover = "rover.cli:main"
-tfroam = "rover.cli:main"
+rover = "tfroam.cli:main"
+tfroam = "tfroam.cli:main"
 
 [project.urls]
 Upstream = "https://github.com/im2nguyen/rover"
@@ -49,15 +49,15 @@ Upstream = "https://github.com/im2nguyen/rover"
 include-package-data = false
 
 [tool.setuptools.packages.find]
-include = ["rover*"]
+include = ["tfroam*"]
 
 [tool.setuptools.package-data]
 # The prebuilt Vue frontend: end users never need Node.
-"rover.ui" = ["dist/**/*"]
-rover = ["py.typed"]
+"tfroam.ui" = ["dist/**/*"]
+tfroam = ["py.typed"]
 
 [tool.setuptools.dynamic]
-version = { attr = "rover.VERSION" }
+version = { attr = "tfroam.VERSION" }
 
 [tool.ruff]
 line-length = 120

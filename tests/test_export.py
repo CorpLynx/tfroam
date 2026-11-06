@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from rover.export import generate_zip, standalone_index, standalone_js
-from rover.ui import dist
+from tfroam.export import generate_zip, standalone_index, standalone_js
+from tfroam.ui import dist
 
 from .assets_util import build_assets
 from .golden_util import FIXTURES, GOLDEN, load_js

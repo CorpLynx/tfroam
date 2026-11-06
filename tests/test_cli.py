@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from rover.cli import UsageError, main, parse_args, split_list
+from tfroam.cli import UsageError, main, parse_args, split_list
 
 from .golden_util import FIXTURES, GOLDEN, load_js
 
@@ -106,7 +106,7 @@ def test_serve_end_to_end_in_a_subprocess(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rover",
+            "tfroam",
             "-workingDir",
             str(FIXTURE_DIR / "simple-test"),
             "-planJSONPath",
@@ -150,7 +150,7 @@ def test_serve_end_to_end_in_a_subprocess(tmp_path: Path) -> None:
 def test_tf_path_defaults_to_path_lookup_but_keeps_go_default_as_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from rover.cli import resolve_tf_path
+    from tfroam.cli import resolve_tf_path
 
     fake = tmp_path / ("terraform.exe" if sys.platform == "win32" else "terraform")
     fake.write_text("")
@@ -169,7 +169,7 @@ def test_tf_path_defaults_to_path_lookup_but_keeps_go_default_as_fallback(
 
 
 def test_json_paths_use_forward_slashes_on_windows() -> None:
-    from rover.config import to_posix
+    from tfroam.config import to_posix
 
     assert to_posix("C:\\work\\.\\mod", sep="\\") == "C:/work/./mod"
     assert to_posix("a/b", sep="/") == "a/b"

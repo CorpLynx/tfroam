@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from rover.config import load_module
+from tfroam.config import load_module
 
 
 def _write(tmp_path: Path, text: str, name: str = "main.tf") -> str:

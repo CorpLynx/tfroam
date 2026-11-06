@@ -16,7 +16,7 @@ from collections.abc import Sequence
 
 from .plan import Plan, PlanError
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 _USER_AGENT = "HashiCorp-terraform-exec/0.15.0"
 

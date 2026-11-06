@@ -22,7 +22,7 @@ from .rso import (
     ResourcesOverview,
 )
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 RESOURCE_TYPE_FILE = "file"
 RESOURCE_TYPE_LOCAL = "locals"

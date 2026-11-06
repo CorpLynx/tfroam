@@ -21,14 +21,14 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 
 ## Step 3: plan models + Terraform runner
 
-- `rover/plan.py` mirrors terraform-json v0.13.0, not the current Terraform plan schema. Fields that
+- `tfroam/plan.py` mirrors terraform-json v0.13.0, not the current Terraform plan schema. Fields that
   version doesn't know (`applyable`, `complete`, `errored`, `timestamp`, `relevant_attributes`,
   provider `full_name`, output `type`, `action_reason`, ...) are dropped on load, as Go does, and the
   goldens expect that.
 - Go `omitempty` quirks reproduced: explicit JSON nulls in `interface{}` fields vanish (an expression
   with `constant_value: null` serializes as `{}`), `change.before` and `schema_version` are always
   emitted, `false`/`0`/`""` inside `interface{}` fields are kept.
-- `rover/terraform.py` follows terraform-exec v0.15.0: `init -no-color -force-copy -input=false
+- `tfroam/terraform.py` follows terraform-exec v0.15.0: `init -no-color -force-copy -input=false
   -backend=true -get=true -upgrade=true`, `plan ... -detailed-exitcode` (exit 2 = success), then
   `show -json -no-color`. TF_VAR_*/TF_CLI_ARGS pass through from the caller's environment;
   TF_LOG, TF_LOG_PATH, TF_WORKSPACE are blanked and TF_IN_AUTOMATION=1 is set.
@@ -50,10 +50,10 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   module from filesystem: per_region" for the module call in this mode.
 - The `.terraform/modules/remote` fixture dir is trimmed to the one `.tf` file the module uses.
 
-## Step 4a: rso (`rover/rso.py`) and config loader (`rover/config.py`)
+## Step 4a: rso (`tfroam/rso.py`) and config loader (`tfroam/config.py`)
 
 - `rso.go` embeds `tfconfig.Module` (terraform-config-inspect) in the overview, so a port of that
-  loader was required: `rover/config.py`. It uses python-hcl2's **parse tree** (not its dict output,
+  loader was required: `tfroam/config.py`. It uses python-hcl2's **parse tree** (not its dict output,
   which can't tell bare object keys from strings and mangles heredocs) for block start lines, and a
   small constant evaluator for `default`, `description`, `sensitive`, `source`, `version`, etc.
   Output matches the Go goldens for all 16 module configs across the 8 fixtures.
@@ -69,7 +69,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   the "Sensitive Value" placeholder because the plan is serialized afterwards.
 - `StateResource.values` is now `None` when absent (Go nil map) so empty-vs-missing matches.
 
-## Step 4b: map (`rover/map.py`)
+## Step 4b: map (`tfroam/map.py`)
 
 - Faithful quirks kept: `line` and `required` are pointers in Go, so they're emitted even when `0`/`false`;
   `AddFileIfNotExists` builds `source` as `"<module source>/<file>"`, and module nodes have no source, so
@@ -80,7 +80,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   load configuration" and puts everything under "unknown file". (Go refuses a working dir that doesn't
   exist at all: "error initialising Terraform with workdir".)
 
-## Step 4c: graph (`rover/graph.py`)
+## Step 4c: graph (`tfroam/graph.py`)
 
 - Go iterates maps in random order, so node/edge **order** in its `graph.js` differs from run to run
   (content does not). The port iterates sorted keys, so its output is reproducible; tests compare
@@ -93,7 +93,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 
 ## Step 5: server, standalone zip, CLI
 
-- **Frontend:** `rover/ui/dist` is upstream's committed `ui/dist` at the pinned commit, verbatim
+- **Frontend:** `tfroam/ui/dist` is upstream's committed `ui/dist` at the pinned commit, verbatim
   (MIT; see `LICENSE.rover`). A fresh `npm ci && npm run build` of the upstream source in this sandbox
   produced the same code, same file sizes and identical vendor/CSS bundles; only `app.js` got a different
   content hash (it only changes the `sourceMappingURL` comment). `scripts/build_ui.sh` redoes the build.
@@ -119,7 +119,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - Verified in headless Chromium: the served page and the unzipped `index.html` opened from `file://`
   both render the random-test graph with no console errors.
 
-## Step 6: image mode (`rover/screenshot.py`)
+## Step 6: image mode (`tfroam/screenshot.py`)
 
 - Same flow as chromedp: open the served page, wait for `#cytoscape-div`, click `#saveGraph` (the UI
   downloads `rover.svg`), save the download to `./rover.svg` (the Go version ignores `-name` here and
@@ -142,7 +142,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 ## Step 7: packaging, Docker, CI, running without a container
 
 - **Native install is a supported path**, not just Docker: `pip`/`pipx install tfroam`. Verified in a clean
-  virtualenv outside the source tree: the wheel carries the UI (`rover/ui/dist`, 20 files), `py.typed`, the
+  virtualenv outside the source tree: the wheel carries the UI (`tfroam/ui/dist`, 20 files), `py.typed`, the
   licence and the `rover` console script; only `python-hcl2`, `lark` and `regex` are pulled in (no Node,
   no Playwright unless `[image]`).
 - **`-tfPath` default:** Go's `/bin/terraform` only exists in the container. Without `-tfPath` the port
@@ -163,10 +163,10 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - **CI** (`.github/workflows/ci.yml`): ruff, `ruff format --check`, `mypy --strict`, pytest on
   Linux/macOS/Windows x Python 3.11/3.13 (real-Terraform test enabled on Linux/macOS); a real-browser job
   where the screenshot tests must not skip; a wheel build + clean-venv install job; a Docker job.
-- **Distribution name:** `tfroam` (PyPI name `rover` is taken; `tfroam` was free when checked, but
-  nothing is published yet, so re-check before the first upload). The import package stays `rover` (as the
-  spec names it) and the console command stays `rover` so the README, Docker entrypoint and existing
-  scripts are unchanged; `tfroam` is installed as a second command for the same program. Caveat: any
-  other installed distribution that also provides a top-level `rover` module would collide with this one.
-  Renaming the import package to `tfroam` would remove that risk at the cost of touching every module.
-- Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `rover/ui/dist`.
+- **Names:** the distribution, the import package and a console command are all `tfroam` (`rover` was
+  taken on PyPI; `tfroam` was free when checked but nothing is published yet, so re-check before the
+  first upload). The `rover` console command is kept as a second entry point for the same program, so the
+  README, the Docker entrypoint and existing scripts are unchanged. The original spec named the import
+  package `rover`; it was renamed so installing `tfroam` cannot collide with another distribution that
+  provides a top-level `rover` module.
+- Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `tfroam/ui/dist`.

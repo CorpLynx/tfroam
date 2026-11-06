@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from rover.server import RoverServer, split_address
+from tfroam.server import RoverServer, split_address
 
 from .assets_util import build_assets
 from .golden_util import GOLDEN, load_js

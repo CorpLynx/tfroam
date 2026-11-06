@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 OUTPUT_FILE = "./rover.svg"
 TIMEOUT_MS = 60_000

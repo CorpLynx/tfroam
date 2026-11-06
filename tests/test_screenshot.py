@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from rover import cli, screenshot
-from rover.screenshot import ImageError, page_url, playwright_available
+from tfroam import cli, screenshot
+from tfroam.screenshot import ImageError, page_url, playwright_available
 
 from .golden_util import GOLDEN
 
@@ -120,8 +120,8 @@ def _signature(svg: str) -> tuple[Counter[str], list[str], tuple[str, str]]:
 def test_real_browser_svg_matches_go_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
-    from rover.assets import generate_assets
-    from rover.server import start_server
+    from tfroam.assets import generate_assets
+    from tfroam.server import start_server
 
     from .golden_util import load_js
 

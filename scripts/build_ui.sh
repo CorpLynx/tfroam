@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild rover/ui/dist from the upstream Rover frontend at the pinned commit.
+# Rebuild tfroam/ui/dist from the upstream Rover frontend at the pinned commit.
 # Only needed when updating the bundled UI; end users never need Node.
 set -euo pipefail
 
@@ -12,6 +12,6 @@ git clone --quiet https://github.com/im2nguyen/rover.git "$WORK/rover"
 git -C "$WORK/rover" checkout --quiet "$UPSTREAM_COMMIT"
 (cd "$WORK/rover/ui" && npm ci --no-audit --no-fund && npm run build)
 
-rm -rf "$HERE/rover/ui/dist"
-cp -r "$WORK/rover/ui/dist" "$HERE/rover/ui/dist"
-echo "Updated $HERE/rover/ui/dist from $UPSTREAM_COMMIT"
+rm -rf "$HERE/tfroam/ui/dist"
+cp -r "$WORK/rover/ui/dist" "$HERE/tfroam/ui/dist"
+echo "Updated $HERE/tfroam/ui/dist from $UPSTREAM_COMMIT"

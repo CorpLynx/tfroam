@@ -45,7 +45,7 @@ jobs:
       - name: Format
         run: ruff format --check .
       - name: Types
-        run: mypy --strict rover tests
+        run: mypy --strict tfroam tests
       - name: Tests
         run: pytest -q
 

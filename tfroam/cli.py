@@ -20,7 +20,7 @@ from . import VERSION
 from .assets import RoverError, generate_assets
 from .export import generate_zip
 
-log = logging.getLogger("rover")
+log = logging.getLogger("tfroam")
 
 Kind = Literal["str", "bool", "list"]
 
