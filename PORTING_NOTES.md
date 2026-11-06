@@ -79,3 +79,14 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - New fixture `noconfig-test`: a working dir whose `main.tf` has a syntax error, so rover logs "Could not
   load configuration" and puts everything under "unknown file". (Go refuses a working dir that doesn't
   exist at all: "error initialising Terraform with workdir".)
+
+## Step 4c: graph (`rover/graph.py`)
+
+- Go iterates maps in random order, so node/edge **order** in its `graph.js` differs from run to run
+  (content does not). The port iterates sorted keys, so its output is reproducible; tests compare
+  nodes and edges by id. The frontend only reads the lists as sets.
+- Kept as-is: edges are made only for whole-resource references (exactly two dotted parts) and
+  data-source references (three parts); `each.*` references are skipped; `var.`/`output.`/`local.`/
+  `module.`/`data.` colours follow the substring order in `addEdges`; a `terraform.workspace` reference
+  adds a synthetic `locals` node parented to the base path.
+- Go would panic on an output whose configuration has no expression; the port skips it.
