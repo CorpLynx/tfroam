@@ -18,3 +18,19 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - random-test golden: `data "http"` URL changed from checkpoint-api.hashicorp.com
   (blocked in the sandbox) to a releases.hashicorp.com URL. Only plan-time values differ.
 - `tests/fixtures/*` holds the `.tf` sources and `.terraform/modules` metadata used.
+
+## Step 3: plan models + Terraform runner
+
+- `rover/plan.py` mirrors terraform-json v0.13.0, not the current Terraform plan schema. Fields that
+  version doesn't know (`applyable`, `complete`, `errored`, `timestamp`, `relevant_attributes`,
+  provider `full_name`, output `type`, `action_reason`, ...) are dropped on load, as Go does, and the
+  goldens expect that.
+- Go `omitempty` quirks reproduced: explicit JSON nulls in `interface{}` fields vanish (an expression
+  with `constant_value: null` serializes as `{}`), `change.before` and `schema_version` are always
+  emitted, `false`/`0`/`""` inside `interface{}` fields are kept.
+- `rover/terraform.py` follows terraform-exec v0.15.0: `init -no-color -force-copy -input=false
+  -backend=true -get=true -upgrade=true`, `plan ... -detailed-exitcode` (exit 2 = success), then
+  `show -json -no-color`. TF_VAR_*/TF_CLI_ARGS pass through from the caller's environment;
+  TF_LOG, TF_LOG_PATH, TF_WORKSPACE are blanked and TF_IN_AUTOMATION=1 is set.
+- Terraform output is captured, not streamed (as in Go); stderr is included in the error message.
+- Terraform Cloud (`-tfcOrg`, `-tfcWorkspace`, `-tfcNewRun`) is not ported.
