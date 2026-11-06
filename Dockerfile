@@ -32,7 +32,7 @@ RUN apt-get update \
 COPY --from=terraform /bin/terraform /bin/terraform
 
 COPY --from=build /dist/*.whl /tmp/
-RUN pip install --no-cache-dir "$(ls /tmp/rover-*.whl)[image]" && rm -f /tmp/*.whl
+RUN pip install --no-cache-dir "$(ls /tmp/tfroam-*.whl)[image]" && rm -f /tmp/*.whl
 
 # Use the system Chromium; Playwright's own browser download is not needed.
 ENV ROVER_BROWSER_PATH=/usr/bin/chromium

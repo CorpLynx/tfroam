@@ -128,7 +128,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - **Differs from the spec text, follows Go:** the server listens on `-ipPort` (default `0.0.0.0:9000`),
   not a free port; the browser is pointed at it (a wildcard host becomes `127.0.0.1`, since `0.0.0.0` is not
   connectable everywhere). The spec's "free port in a background thread" is not what Go does.
-- Playwright is optional (`pip install 'rover[image]'`); without it `-genImage` fails fast, before the server
+- Playwright is optional (`pip install 'tfroam[image]'`); without it `-genImage` fails fast, before the server
   starts, with an install hint. Browser: `ROVER_BROWSER_PATH` if set, else Playwright's own Chromium, else a
   system `chromium`/`google-chrome` on `PATH` (what the Docker image uses). `--no-sandbox` is added when
   running as root.
@@ -141,7 +141,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 
 ## Step 7: packaging, Docker, CI, running without a container
 
-- **Native install is a supported path**, not just Docker: `pip`/`pipx install rover`. Verified in a clean
+- **Native install is a supported path**, not just Docker: `pip`/`pipx install tfroam`. Verified in a clean
   virtualenv outside the source tree: the wheel carries the UI (`rover/ui/dist`, 20 files), `py.typed`, the
   licence and the `rover` console script; only `python-hcl2`, `lark` and `regex` are pulled in (no Node,
   no Playwright unless `[image]`).
@@ -163,7 +163,10 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - **CI** (`.github/workflows/ci.yml`): ruff, `ruff format --check`, `mypy --strict`, pytest on
   Linux/macOS/Windows x Python 3.11/3.13 (real-Terraform test enabled on Linux/macOS); a real-browser job
   where the screenshot tests must not skip; a wheel build + clean-venv install job; a Docker job.
-- **Distribution name:** `rover` follows the spec (`pip install rover[image]`), but that name on PyPI is
-  probably taken: check before publishing (an alternative such as `rover-tf` keeps the `rover` import and
-  command unchanged).
+- **Distribution name:** `tfroam` (PyPI name `rover` is taken; `tfroam` was free when checked, but
+  nothing is published yet, so re-check before the first upload). The import package stays `rover` (as the
+  spec names it) and the console command stays `rover` so the README, Docker entrypoint and existing
+  scripts are unchanged; `tfroam` is installed as a second command for the same program. Caveat: any
+  other installed distribution that also provides a top-level `rover` module would collide with this one.
+  Renaming the import package to `tfroam` would remove that risk at the cost of touching every module.
 - Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `rover/ui/dist`.

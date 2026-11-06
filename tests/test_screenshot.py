@@ -41,7 +41,7 @@ def test_missing_playwright_gives_install_hint(
     monkeypatch.chdir(Path(__file__).parent / "fixtures" / "simple-test")
     code = cli.main(["-planJSONPath", str(plan_json), "-genImage", "true"])  # fails before serving anything
     assert code == 1
-    assert "pip install 'rover[image]'" in capsys.readouterr().err
+    assert "pip install 'tfroam[image]'" in capsys.readouterr().err
 
 
 def _free_addr() -> str:

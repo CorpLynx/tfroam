@@ -3,7 +3,7 @@
 Port of ``screenshot.go``. The Go version drives Chrome with chromedp: it opens the
 page, waits for the graph, clicks "Save Graph" (which downloads ``rover.svg``) and
 moves the download to ``./rover.svg``. Playwright does the same here and is an
-optional dependency (``pip install rover[image]``).
+optional dependency (``pip install tfroam[image]``).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ BROWSER_ENV = "ROVER_BROWSER_PATH"
 _SYSTEM_BROWSERS = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome")
 INSTALL_HINT = (
     "Image generation needs Playwright and a Chromium browser: "
-    "pip install 'rover[image]' && playwright install chromium "
+    "pip install 'tfroam[image]' && playwright install chromium "
     f"(or set {BROWSER_ENV} to a Chrome/Chromium executable)"
 )
 

@@ -1,8 +1,11 @@
-# Rover (Python)
+# tfroam
 
-Rover is an interactive [Terraform](https://www.terraform.io/) visualizer. This is a Python port of
-[im2nguyen/rover](https://github.com/im2nguyen/rover): the Go backend is rewritten in Python and the
+**tfroam** is an interactive [Terraform](https://www.terraform.io/) visualizer: a Python port of
+[im2nguyen/rover](https://github.com/im2nguyen/rover). The Go backend is rewritten in Python and the
 original Vue frontend is bundled unchanged, so you get the same visualization.
+
+The package is `tfroam`; the command is `rover` (as in the original, so existing scripts and Docker
+commands keep working) and `tfroam` is an alias for it.
 
 Rover:
 
@@ -17,11 +20,11 @@ Rover:
 
 ## Install
 
-Rover needs **Python 3.11+** and a **Terraform** binary (unless you only visualize a plan file). It does
+tfroam needs **Python 3.11+** and a **Terraform** binary (unless you only visualize a plan file). It does
 not need Docker, and the frontend is prebuilt, so it does not need Node either.
 
 ```
-$ pipx install rover        # or: pip install rover
+$ pipx install tfroam        # or: pip install tfroam
 ```
 
 From a checkout:
@@ -37,7 +40,7 @@ Rover looks for `terraform` on your `PATH`. Use `-tfPath` to point at a specific
 `-genImage` renders the page in a headless browser, which needs Playwright and a Chromium:
 
 ```
-$ pipx install 'rover[image]'
+$ pipx install 'tfroam[image]'
 $ playwright install chromium      # or set ROVER_BROWSER_PATH to an existing Chrome/Chromium
 ```
 
