@@ -1,0 +1,15 @@
+resource "terraform_data" "unchanged" {
+  input = "same"
+}
+
+resource "terraform_data" "to_update" {
+  input = "old"
+}
+
+resource "terraform_data" "to_delete" {
+  input = "bye"
+}
+
+resource "terraform_data" "to_replace" {
+  triggers_replace = "v1"
+}

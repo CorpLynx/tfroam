@@ -34,3 +34,18 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
   TF_LOG, TF_LOG_PATH, TF_WORKSPACE are blanked and TF_IN_AUTOMATION=1 is set.
 - Terraform output is captured, not streamed (as in Go); stderr is included in the error message.
 - Terraform Cloud (`-tfcOrg`, `-tfcWorkspace`, `-tfcNewRun`) is not ported.
+
+## Added fixtures (captured from the Go binary)
+
+- `for-each-test`: `for_each` over a set and a map with string keys, a resource iterating another
+  resource, and a module with `for_each`.
+- `deep-nested-test`: local modules three levels deep (`level1.level2.level3`, the last with `count`)
+  plus one git-sourced module. **No registry module**: the sandbox blocks registry.terraform.io, so a
+  git source stands in. `modules.json` shape for registry sources is therefore untested; add one
+  fixture when registry access is available.
+- `actions-test`: real prior state, then a config edit giving create, update, delete, replace
+  (`delete`+`create`) and no-op. `main.tf.initial` is the config used to build the state.
+- `plan-only-test`: the `for-each-test` plan fed through `-planJSONPath` with an empty working
+  directory (`plan.json`; create an empty dir at test time). Go logs "Continuing without loading
+  module from filesystem: per_region" for the module call in this mode.
+- The `.terraform/modules/remote` fixture dir is trimmed to the one `.tf` file the module uses.
