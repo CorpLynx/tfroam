@@ -1,4 +1,7 @@
-"""Command line: same flags, spelling and defaults as the Go version.
+"""Command line: the Go version's flags and spelling, plus a few additions.
+
+Defaults follow Go except ``-ipPort`` (``127.0.0.1:9000`` instead of ``0.0.0.0:9000``) and the
+``-tfPath`` lookup; see README "Differences from the Go version".
 
 Go's ``flag`` package accepts ``-name value``, ``-name=value`` and ``--name``, and a
 bare boolean flag means true. argparse can't express single-dash camelCase names,
@@ -19,6 +22,7 @@ from typing import Literal, TextIO
 from . import VERSION
 from .assets import RoverError, generate_assets
 from .export import generate_zip
+from .graph import validate_hide
 
 log = logging.getLogger("tfroam")
 
@@ -31,14 +35,30 @@ class FlagSpec:
     kind: Kind
     default: str | bool
     help: str
+    default_text: str = ""  # shown in usage instead of the raw default, when the real default is computed
 
+
+DEFAULT_IP_PORT = "127.0.0.1:9000"
+IMAGE_IP_PORT = "127.0.0.1:0"  # -genImage without -ipPort: any free port, so a running Rover doesn't clash
 
 FLAGS: tuple[FlagSpec, ...] = (
-    FlagSpec("tfPath", "str", "/bin/terraform", "Path to Terraform binary"),
+    FlagSpec(
+        "tfPath",
+        "str",
+        "/bin/terraform",
+        "Path to Terraform binary",
+        default_text='"terraform" on PATH, else "/bin/terraform"',
+    ),
     FlagSpec("workingDir", "str", ".", "Path to Terraform configuration"),
     FlagSpec("name", "str", "rover", "Configuration name"),
     FlagSpec("zipFileName", "str", "rover", "Standalone zip file name"),
-    FlagSpec("ipPort", "str", "0.0.0.0:9000", "IP and port for Rover server"),
+    FlagSpec(
+        "ipPort",
+        "str",
+        DEFAULT_IP_PORT,
+        "IP and port for Rover server (with -genImage and no -ipPort, a free port on 127.0.0.1)",
+    ),
+    FlagSpec("imagePath", "str", "rover.svg", "Where -genImage writes the SVG"),
     FlagSpec("planPath", "str", "", "Plan file path"),
     FlagSpec("planJSONPath", "str", "", "Plan JSON file path"),
     FlagSpec("workspaceName", "str", "", "Workspace name"),
@@ -49,6 +69,10 @@ FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec("tfcNewRun", "bool", False, "Create new Terraform Cloud run"),
     FlagSpec("version", "bool", False, "Get current version"),
     FlagSpec("genImage", "bool", False, "Generate graph image"),
+    FlagSpec("tfUpgrade", "bool", False, "Run init with -upgrade=true (updates .terraform.lock.hcl and modules)"),
+    FlagSpec("tfLock", "bool", True, "Lock the state during plan; -tfLock=false skips the lock"),
+    FlagSpec("tfRefresh", "bool", True, "Refresh state during plan; -tfRefresh=false skips the refresh"),
+    FlagSpec("verbose", "bool", False, "Stream Terraform init, workspace and plan output to stderr"),
     FlagSpec("tfVarsFile", "list", "", "Path to *.tfvars files"),
     FlagSpec("tfVar", "list", "", "Terraform variable (key=value)"),
     FlagSpec("tfBackendConfig", "list", "", "Path to *.tfbackend files"),
@@ -69,7 +93,8 @@ class Options:
     working_dir: str = "."
     name: str = "rover"
     zip_file_name: str = "rover"
-    ip_port: str = "0.0.0.0:9000"
+    ip_port: str = DEFAULT_IP_PORT
+    image_path: str = "rover.svg"
     plan_path: str = ""
     plan_json_path: str = ""
     workspace_name: str = ""
@@ -80,6 +105,10 @@ class Options:
     tfc_new_run: bool = False
     version: bool = False
     gen_image: bool = False
+    tf_upgrade: bool = False
+    tf_lock: bool = True
+    tf_refresh: bool = True
+    verbose: bool = False
     tf_vars_files: list[str] = field(default_factory=list)
     tf_vars: list[str] = field(default_factory=list)
     tf_backend_configs: list[str] = field(default_factory=list)
@@ -93,6 +122,7 @@ _ATTRS = {
     "name": "name",
     "zipFileName": "zip_file_name",
     "ipPort": "ip_port",
+    "imagePath": "image_path",
     "planPath": "plan_path",
     "planJSONPath": "plan_json_path",
     "workspaceName": "workspace_name",
@@ -103,6 +133,10 @@ _ATTRS = {
     "tfcNewRun": "tfc_new_run",
     "version": "version",
     "genImage": "gen_image",
+    "tfUpgrade": "tf_upgrade",
+    "tfLock": "tf_lock",
+    "tfRefresh": "tf_refresh",
+    "verbose": "verbose",
     "tfVarsFile": "tf_vars_files",
     "tfVar": "tf_vars",
     "tfBackendConfig": "tf_backend_configs",
@@ -115,8 +149,12 @@ def usage_text(prog: str = "rover") -> str:
     for spec in sorted(FLAGS, key=lambda f: f.name):
         head = f"  -{spec.name}" if spec.kind == "bool" else f"  -{spec.name} string"
         text = spec.help
-        if spec.kind == "str" and spec.default:
+        if spec.default_text:
+            text += f" (default {spec.default_text})"
+        elif spec.kind == "str" and spec.default:
             text += f' (default "{spec.default}")'
+        elif spec.kind == "bool" and spec.default is True:
+            text += " (default true)"  # as Go prints it; false defaults are not shown
         lines += [head, f"    \t{text}"]
     return "\n".join(lines) + "\n"
 
@@ -216,8 +254,22 @@ def run(opts: Options) -> int:
 
     log.info("Starting Rover...")
 
+    # Everything that can be checked without Terraform is checked here, before init and plan.
     if opts.tfc_org or opts.tfc_workspace or opts.tfc_new_run:
         raise RoverError("Terraform Cloud flags (-tfcOrg, -tfcWorkspace, -tfcNewRun) are not supported in this port")
+    hide = split_list(opts.hide)
+    try:
+        validate_hide(hide)
+    except ValueError as exc:
+        raise RoverError(str(exc)) from exc
+    want_image = opts.gen_image and not opts.standalone  # -standalone exits before image mode
+    if want_image:
+        from .screenshot import INSTALL_HINT, playwright_available
+
+        if not playwright_available():
+            raise RoverError(INSTALL_HINT)
+        if not opts.image_path:
+            raise RoverError("-imagePath must not be empty")
 
     assets = generate_assets(
         working_dir=opts.working_dir,
@@ -229,7 +281,11 @@ def run(opts: Options) -> int:
         tf_vars=split_list(opts.tf_vars),
         tf_backend_configs=split_list(opts.tf_backend_configs),
         show_sensitive=opts.show_sensitive,
-        hide=split_list(opts.hide),
+        hide=hide,
+        tf_upgrade=opts.tf_upgrade,
+        tf_lock=opts.tf_lock,
+        tf_refresh=opts.tf_refresh,
+        verbose=opts.verbose,
     )
     log.info("Done generating assets.")
 
@@ -244,24 +300,26 @@ def run(opts: Options) -> int:
 
     from .server import start_server
 
-    if opts.gen_image:
-        from .screenshot import INSTALL_HINT, playwright_available
-
-        if not playwright_available():
-            raise RoverError(INSTALL_HINT)
-
+    ip_port = opts.ip_port
+    if want_image and "ipPort" not in opts.given:
+        ip_port = IMAGE_IP_PORT
     try:
-        server = start_server(opts.ip_port, assets)
+        server = start_server(ip_port, assets)
     except (OSError, ValueError) as exc:
         raise RoverError(f"Could not start server: {exc}") from exc
 
     image_error: list[Exception] = []
-    if opts.gen_image:
+    if want_image:
         from .screenshot import ImageError, screenshot
+
+        # Point the browser at the port actually bound (differs from ip_port when it ends in :0).
+        browser_addr = f"{ip_port.rpartition(':')[0]}:{server.port}"
+        if browser_addr != ip_port:
+            log.info("Image server bound to %s", browser_addr)
 
         def take_screenshot() -> None:
             try:
-                screenshot(opts.ip_port)
+                screenshot(browser_addr, output=opts.image_path)
             except ImageError as exc:
                 image_error.append(exc)
             finally:
@@ -276,7 +334,7 @@ def run(opts: Options) -> int:
     finally:
         server.server_close()
 
-    if opts.gen_image:
+    if want_image:
         if image_error:
             raise RoverError(str(image_error[0]))
         log.info("Server shut down.")
