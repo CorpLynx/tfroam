@@ -13,7 +13,7 @@ Rover:
    configuration in the working directory,
 2. builds three documents from them: the resource overview (`rso`), the module/file map (`map`) and the
    resource graph (`graph`),
-3. serves an interactive configuration and state visualization on `0.0.0.0:9000`, writes a standalone
+3. serves an interactive configuration and state visualization on `127.0.0.1:9000`, writes a standalone
    `rover.zip`, or saves the graph as an SVG.
 
 ![Rover screenshot](docs/screenshot.png)
@@ -57,10 +57,20 @@ $ rover
 2026/11/06 06:46:25 Generating resource map...
 2026/11/06 06:46:25 Generating resource graph...
 2026/11/06 06:46:25 Done generating assets.
-2026/11/06 06:46:25 Rover is running on 0.0.0.0:9000
+2026/11/06 06:46:25 Rover is running on 127.0.0.1:9000
 ```
 
 Then open <http://localhost:9000>. Other directory? `rover -workingDir example/eks-cluster`.
+
+Rover only listens on `127.0.0.1`. To reach it from another machine, ask for it explicitly with
+`rover -ipPort 0.0.0.0:9000`. If `-ipPort` is given more than once, the last one wins.
+
+Terraform's own output is captured and only shown if a command fails, so a long `init` can look stuck. Add
+`-verbose` to watch `init`, `workspace select` and `plan` as they run (on stderr):
+
+```
+$ rover -verbose
+```
 
 ### Run on a Terraform plan file
 
@@ -84,11 +94,15 @@ $ rover -standalone true
 
 ### Save an image
 
-Writes `./rover.svg`:
+Writes `./rover.svg`, or the file named by `-imagePath`:
 
 ```
 $ rover -genImage true
+$ rover -genImage -imagePath docs/graph.svg
 ```
+
+While it renders, image mode serves the page on a free port on `127.0.0.1`, so it works even when another
+Rover is already running on port 9000. Give `-ipPort` to choose the address yourself.
 
 ### Making a big graph easier to read
 
@@ -112,6 +126,21 @@ $ rover -tfBackendConfig test.tfbackend -tfVarsFile test.tfvars -tfVar max_lengt
 
 Environment variables (cloud credentials, `TF_VAR_*`, `TF_CLI_ARGS`) are passed through to Terraform.
 
+### What Rover does to your working directory
+
+Rover runs `terraform init -input=false -upgrade=false`, so your `.terraform.lock.hcl` is left as it is.
+Pass `-tfUpgrade` to run `init -upgrade=true` instead (newest allowed provider and module versions, lock
+file rewritten). Rover never migrates state: if the backend configuration changed since the last `init`,
+Terraform stops with "Backend configuration changed" and you run `terraform init -migrate-state` (or
+`-reconfigure`) yourself.
+
+Like `terraform plan`, Rover's `plan` takes the state lock and refreshes state. On shared remote state you
+can skip either or both:
+
+```
+$ rover -tfLock=false -tfRefresh=false
+```
+
 ## Docker
 
 The image keeps the original contract, so the commands from the upstream README work unchanged. Build it
@@ -134,7 +163,8 @@ Chromium. Pick a Terraform version with `--build-arg TF_VERSION=1.9.8`.
 
 ## Flags
 
-The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=value` and `--flag` all work).
+The Go version's flags, spelled the same way, plus a few additions (`-flag value`, `-flag=value` and
+`--flag` all work). A bare boolean flag means true; turn one off with `-flag=false` or `-flag false`.
 
 | Flag | Meaning | Default |
 |---|---|---|
@@ -150,8 +180,13 @@ The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=v
 | `-hide` | Hide kinds of nodes in the graph: `locals`, `variables`, `outputs` (comma-separated or repeated) | |
 | `-standalone` | Write `<zipFileName>.zip` and exit | `false` |
 | `-zipFileName` | Name of the standalone zip (without `.zip`) | `rover` |
-| `-genImage` | Save `./rover.svg` and exit | `false` |
-| `-ipPort` | Address to serve on | `0.0.0.0:9000` |
+| `-genImage` | Save the graph as an SVG (see `-imagePath`) and exit | `false` |
+| `-imagePath` | Where `-genImage` writes the SVG | `rover.svg` |
+| `-ipPort` | Address to serve on (if repeated, the last one wins) | `127.0.0.1:9000`; with `-genImage`, a free port on `127.0.0.1` |
+| `-tfUpgrade` | Run `init -upgrade=true` (updates `.terraform.lock.hcl`) | `false` |
+| `-tfLock` | Take the state lock during `plan`; `-tfLock=false` skips it | `true` |
+| `-tfRefresh` | Refresh state during `plan`; `-tfRefresh=false` skips it | `true` |
+| `-verbose` | Stream Terraform's `init`, `workspace select` and `plan` output to stderr | `false` |
 | `-name` | Configuration name | `rover` |
 | `-version` | Print the version | |
 
@@ -159,8 +194,15 @@ The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=v
 
 - **Install:** a Python package (`pip`/`pipx`) instead of a single static binary.
 - **Terraform lookup:** without `-tfPath`, Rover uses `terraform` from `PATH` (falling back to the Go
-  default `/bin/terraform`), so it works outside a container. A missing Terraform only matters when Rover
-  has to run it: `-planJSONPath` works without it.
+  default `/bin/terraform`), so it works outside a container; `-h` says so. A missing Terraform only
+  matters when Rover has to run it: `-planJSONPath` works without it.
+- **Bind address:** the default `-ipPort` is `127.0.0.1:9000` (Go: `0.0.0.0:9000`), so the view of your
+  plan is not exposed on the network unless you pass `-ipPort 0.0.0.0:9000`. The Docker image passes it.
+- **`init` and `plan`:** `init` runs with `-upgrade=false` (Go: `-upgrade=true`, which rewrites
+  `.terraform.lock.hcl` on every run; use `-tfUpgrade` for that) and without `-force-copy` (Go silently
+  migrates state when the backend changed; here Terraform stops with its own error). `-tfLock` and
+  `-tfRefresh` control `plan -lock`/`-refresh`, which Go always sets to `true`.
+- **Early checks:** a bad `-hide` value or a missing Playwright for `-genImage` fails before Terraform runs.
 - **Terraform Cloud flags** (`-tfcOrg`, `-tfcWorkspace`, `-tfcNewRun`) are accepted but not supported; they
   exit with an error.
 - **`.tf.json` files** are not read for file and line information (the plan still shows them).
@@ -168,9 +210,12 @@ The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=v
   `false` as a stray argument.
 - **Graph ordering:** nodes and edges are listed in a stable order. Go's order changes from run to run;
   the content is the same.
-- **Image mode:** needs the `image` extra and a Chromium (see above). Image layouts are not byte-for-byte
-  reproducible, in Go either; the elements, labels and canvas size match.
-- **Terraform output** is captured, as in the original, and shown only if a command fails.
+- **Image mode:** needs the `image` extra and a Chromium (see above). Without `-ipPort` it serves on a free
+  port on `127.0.0.1` (Go uses `-ipPort`, so it fails if port 9000 is taken), and `-imagePath` sets the
+  output file (Go always writes `./rover.svg`). Image layouts are not byte-for-byte reproducible, in Go
+  either; the elements, labels and canvas size match.
+- **Terraform output** is captured, as in the original, and shown only if a command fails; `-verbose`
+  streams it live.
 
 More detail, including every quirk deliberately kept, is in [PORTING_NOTES.md](PORTING_NOTES.md).
 

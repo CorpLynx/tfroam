@@ -180,3 +180,48 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - Motivation: on a real 61-resource, 3-module AWS plan, `local.name` and variable references account for
   roughly half of the 153 edges, which makes the picture hard to read. The frontend is unchanged.
 - An unknown value exits 1 with the list of valid ones.
+
+## CLI and Terraform runner changes (beyond the port)
+
+These deliberately differ from the Go version. They supersede the `init` flags and "captured, not
+streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 6".
+
+- **Bind address:** `-ipPort` defaults to `127.0.0.1:9000` (Go: `0.0.0.0:9000`), so the plan view is not
+  exposed to the network by default. The Docker image passes `-ipPort 0.0.0.0:9000` explicitly; a repeated
+  flag overrides an earlier one (last one wins, as with Go's `flag`), so `docker run ... -ipPort X` still
+  works.
+- **`init`** is now `init -no-color -input=false -backend=true -get=true -upgrade=false
+  [-backend-config=...]`:
+  - `-upgrade=false` by default (terraform-exec passes `-upgrade=true`, which rewrites
+    `.terraform.lock.hcl` and re-fetches modules on every run). `-tfUpgrade` restores `-upgrade=true`.
+  - No `-force-copy`. With it, a changed backend configuration made `init` copy state to the new backend
+    without asking. Without it (and with `-input=false`), Terraform fails with "Backend configuration
+    changed" and tells the user to run `init -migrate-state` or `-reconfigure`; Rover reports that as
+    "Unable to initialize Terraform Plan: ...". Checked with Terraform 1.15.8 using a local backend whose
+    `path` changed: init exits 1 and no state file is created at the new path
+    (`test_real_terraform_refuses_backend_change_instead_of_migrating`).
+- **`plan`** is `plan -no-color -input=false -detailed-exitcode -out=<tmp> [-var-file=...]
+  -lock=<tfLock> -parallelism=10 -refresh=<tfRefresh> [-var k=v ...]`. `-tfLock` and `-tfRefresh` default
+  to `true` (same as Go and terraform-exec); `-tfLock=false` / `-tfLock false` turn them off. `show -json`
+  is unchanged.
+- **`-verbose`** streams the stdout and stderr of `init`, `workspace select` and `plan` to Rover's stderr
+  line by line as they run (two reader threads over `Popen` pipes, argument list, no shell). Both streams
+  are still captured, so a failure's error message still carries Terraform's stderr. `show -json` is never
+  streamed: its stdout is the plan. Without `-verbose`, commands run through `subprocess.run` as before.
+- **Validation before Terraform runs:** the Terraform Cloud flag error, unknown `-hide` values
+  (`graph.validate_hide`, which `filter_graph` also uses) and a missing Playwright for `-genImage` are all
+  checked in `cli.run` before `generate_assets`, so they fail in well under a second instead of after
+  `init` and `plan`. `-genImage` together with `-standalone` still does not need Playwright, because
+  standalone mode exits before image mode (unchanged behaviour).
+- **Image mode address:** with `-genImage` and no explicit `-ipPort`, the server binds `127.0.0.1:0` and the
+  browser is pointed at `RoverServer.port`, the port actually bound, so image mode works while another Rover
+  holds port 9000. An explicit `-ipPort` is used as before. `server.start_server` still logs the requested
+  address (`Rover is running on 127.0.0.1:0`), so the CLI logs the bound address after it.
+- **`-imagePath`** (default `rover.svg`, relative to the current directory like Go's `./rover.svg`) is passed
+  to `screenshot.screenshot(output=...)`. An empty value is rejected before Terraform runs.
+- **Usage text:** `-tfPath` shows `(default "terraform" on PATH, else "/bin/terraform")`, which is what
+  `resolve_tf_path` does. Bool flags whose default is `true` print `(default true)` as Go's `flag` does;
+  `false` defaults are not printed. A test checks every `FLAGS` default against `Options`.
+- **Real-Terraform test:** `test_real_terraform_simple_fixture` now also ignores the
+  `prior_state.terraform_version` field. The goldens were captured with 1.9.8, so any other Terraform
+  version failed that test before this change.
