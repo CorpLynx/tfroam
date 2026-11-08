@@ -50,6 +50,10 @@ def generate_assets(
     tf_backend_configs: Sequence[str] = (),
     show_sensitive: bool = False,
     hide: Sequence[str] = (),
+    tf_upgrade: bool = False,
+    tf_lock: bool = True,
+    tf_refresh: bool = True,
+    verbose: bool = False,
 ) -> Assets:
     try:
         plan = get_plan(
@@ -61,6 +65,10 @@ def generate_assets(
             tf_vars_files=tf_vars_files,
             tf_vars=tf_vars,
             tf_backend_configs=tf_backend_configs,
+            tf_upgrade=tf_upgrade,
+            tf_lock=tf_lock,
+            tf_refresh=tf_refresh,
+            verbose=verbose,
         )
     except (TerraformError, PlanError) as exc:
         raise RoverError(f"Unable to parse Plan: {exc}") from exc
