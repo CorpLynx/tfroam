@@ -336,6 +336,19 @@ def generate_edges(rso: ResourcesOverview, map_obj: Map) -> list[Edge]:
 HIDEABLE = {"locals": RESOURCE_TYPE_LOCAL, "variables": RESOURCE_TYPE_VARIABLE, "outputs": RESOURCE_TYPE_OUTPUT}
 
 
+def validate_hide(hide: Iterable[str]) -> list[str]:
+    """Check ``-hide`` values; return them de-duplicated, in order.
+
+    Raises ``ValueError`` naming the first unknown value. The CLI calls this before running
+    Terraform so a typo fails at once instead of after ``init`` and ``plan``.
+    """
+    kinds = list(dict.fromkeys(hide))
+    unknown = [k for k in kinds if k not in HIDEABLE]
+    if unknown:
+        raise ValueError(f"unknown -hide value {unknown[0]!r} (valid: {', '.join(sorted(HIDEABLE))})")
+    return kinds
+
+
 def filter_graph(graph: Graph, hide: Iterable[str]) -> Graph:
     """Drop whole kinds of nodes (and every edge touching them) to make big graphs readable.
 
@@ -344,10 +357,7 @@ def filter_graph(graph: Graph, hide: Iterable[str]) -> Graph:
     resource references ``local.name`` or a variable, so they produce most of the wiring.
     Files left with nothing in them are removed too.
     """
-    kinds = list(dict.fromkeys(hide))
-    unknown = [k for k in kinds if k not in HIDEABLE]
-    if unknown:
-        raise ValueError(f"unknown -hide value {unknown[0]!r} (valid: {', '.join(sorted(HIDEABLE))})")
+    kinds = validate_hide(hide)
     if not kinds:
         return graph
 
