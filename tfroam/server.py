@@ -1,10 +1,14 @@
 """HTTP server for the interactive view (port of ``server.go``).
 
-Serves the bundled frontend plus ``/api/{plan,rso,map,graph}`` and ``/health``.
+Serves the bundled frontend plus ``/api/{rso,map,graph}`` and ``/health``.
+The Go version also served ``/api/plan`` and sent ``Access-Control-Allow-Origin: *``;
+both are dropped here, and a loopback-bound server checks the ``Host`` header
+against DNS rebinding.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import mimetypes
 import posixpath
@@ -28,7 +32,8 @@ _CONTENT_TYPES = {
     ".ico": "image/x-icon",
     ".png": "image/png",
 }
-_INVALID_TYPE = "Please enter a valid file type: plan, rso, map, graph\n"
+_INVALID_TYPE = "Please enter a valid file type: rso, map, graph\n"
+_LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 def split_address(ip_port: str) -> tuple[str, int]:
@@ -37,6 +42,43 @@ def split_address(ip_port: str) -> tuple[str, int]:
     if not sep or not port.isdigit():
         raise ValueError(f"invalid address {ip_port!r}: expected host:port")
     return host.strip("[]"), int(port)
+
+
+def is_loopback(host: str) -> bool:
+    """``localhost`` or a literal loopback address (127.0.0.0/8, ``::1``)."""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def host_header_name(value: str) -> str | None:
+    """The hostname in a ``Host`` header (lower-cased, IPv6 without brackets); None if malformed."""
+    value = value.strip().lower()
+    if value.startswith("["):
+        name, sep, rest = value[1:].partition("]")
+        if not sep or (rest and not (rest.startswith(":") and rest[1:].isdigit())):
+            return None
+        return name
+    if value.count(":") > 1:
+        return value  # a bare IPv6 address
+    name, sep, port = value.partition(":")
+    if sep and not port.isdigit():
+        return None
+    return name or None
+
+
+def allowed_hosts_for(bind_host: str) -> frozenset[str] | None:
+    """``Host`` names accepted by a server bound to ``bind_host``; None = accept any.
+
+    DNS-rebinding guard: only a loopback binding is filtered. A wildcard or LAN
+    address (e.g. ``0.0.0.0`` in Docker) is reached under names we can't know.
+    """
+    if not is_loopback(bind_host):
+        return None
+    return _LOOPBACK_NAMES | {bind_host.lower()}
 
 
 class RoverServer(ThreadingHTTPServer):
@@ -48,6 +90,7 @@ class RoverServer(ThreadingHTTPServer):
         self.address_family = socket.AF_INET6 if ":" in host else socket.AF_INET
         self.documents = {name: dumps_json(doc).encode("utf-8") for name, doc in assets.documents().items()}
         self.frontend = frontend if frontend is not None else dist()
+        self.allowed_hosts = allowed_hosts_for(host)
         super().__init__((host, port), _Handler)
 
     @property
@@ -62,12 +105,10 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - signature fixed by the base class
         pass  # the Go version does not log requests
 
-    def _send(self, status: int, body: bytes, content_type: str, cors: bool = False) -> None:
+    def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        if cors:
-            self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -75,7 +116,20 @@ class _Handler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:
         self.do_GET()
 
+    def _host_allowed(self) -> bool:
+        allowed = self.server.allowed_hosts
+        if allowed is None:
+            return True
+        hosts = self.headers.get_all("Host") or []
+        if not hosts:
+            return self.request_version == "HTTP/1.0"  # Host is optional only before HTTP/1.1
+        return len(hosts) == 1 and host_header_name(hosts[0]) in allowed
+
     def do_GET(self) -> None:
+        if not self._host_allowed():
+            self._send(403, b"403 Forbidden: unexpected Host header\n", "text/plain; charset=utf-8")
+            return
+
         path = unquote(urlsplit(self.path).path)
 
         if path == "/health":
@@ -84,9 +138,9 @@ class _Handler(BaseHTTPRequestHandler):
             kind = path.replace("/api/", "", 1)
             body = self.server.documents.get(kind)
             if body is None:
-                self._send(200, _INVALID_TYPE.encode(), "text/plain; charset=utf-8", cors=True)
+                self._send(200, _INVALID_TYPE.encode(), "text/plain; charset=utf-8")
             else:
-                self._send(200, body, "application/json", cors=True)
+                self._send(200, body, "application/json")
         else:
             self._static(path)
 

@@ -171,6 +171,14 @@ The same flags, spelled the same way, as the Go version (`-flag value`, `-flag=v
 - **Image mode:** needs the `image` extra and a Chromium (see above). Image layouts are not byte-for-byte
   reproducible, in Go either; the elements, labels and canvas size match.
 - **Terraform output** is captured, as in the original, and shown only if a command fails.
+- **Sensitive values are hidden everywhere**, not just in outputs: sensitive resource attributes (before
+  and after), state values, object-shaped output markers and `sensitive = true` variable defaults all
+  show as `Sensitive Value` unless `-showSensitive` is given.
+- **No full plan is published:** `/api/plan` is gone and the standalone zip has no `plan.js` (the UI never
+  read either).
+- **API responses have no `Access-Control-Allow-Origin: *` header**; the UI is same-origin.
+- **DNS-rebinding guard:** on a loopback `-ipPort` (e.g. `127.0.0.1:9000`), requests with any `Host` other
+  than `localhost`, `127.0.0.1`, `[::1]` or the bound host get `403`. The default `0.0.0.0` is not filtered.
 
 More detail, including every quirk deliberately kept, is in [PORTING_NOTES.md](PORTING_NOTES.md).
 

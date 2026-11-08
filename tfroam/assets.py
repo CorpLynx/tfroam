@@ -13,7 +13,9 @@ from .plan import Plan, PlanError
 from .rso import ResourcesOverview, generate_resource_overview
 from .terraform import TerraformError, get_plan
 
-DOCUMENT_NAMES = ("plan", "rso", "map", "graph")
+# The documents the frontend reads. The plan is kept on ``Assets`` but never
+# published: the UI does not use it and it carries far more data than it needs.
+DOCUMENT_NAMES = ("rso", "map", "graph")
 
 
 class RoverError(RuntimeError):
@@ -28,9 +30,8 @@ class Assets:
     graph: Graph
 
     def documents(self) -> dict[str, Any]:
-        """The four JSON documents the frontend reads, keyed by name."""
+        """The JSON documents the frontend reads (``rso``, ``map``, ``graph``), keyed by name."""
         return {
-            "plan": self.plan.to_json(),
             "rso": self.rso.to_json(),
             "map": self.map.to_json(),
             "graph": self.graph.to_json(),
