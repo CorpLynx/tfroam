@@ -59,5 +59,6 @@ def generate_zip(assets: Assets, filename: str | Path, frontend: Traversable | N
             elif name.endswith(".js"):
                 data = standalone_js(data)
             _add(zf, name, data)
+        # rso.js, map.js, graph.js. Go also wrote plan.js, which index.html never loads.
         for doc_name, doc in assets.documents().items():
             _add(zf, f"{doc_name}.js", dumps_js(doc_name, doc).encode("utf-8"))

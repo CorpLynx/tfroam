@@ -92,7 +92,9 @@ def test_standalone_end_to_end(fixture: str, tmp_path: Path, monkeypatch: pytest
     code = main(["-workingDir", str(wd), "-planJSONPath", "plan.json", "-standalone", "true", "-zipFileName", "site"])
     assert code == 0
     with zipfile.ZipFile(tmp_path / "site.zip") as zf:
-        assert {"index.html", "plan.js", "rso.js", "map.js", "graph.js"} <= set(zf.namelist())
+        names = set(zf.namelist())
+        assert {"index.html", "rso.js", "map.js", "graph.js"} <= names
+        assert "plan.js" not in names  # Go wrote it; the port does not (see PORTING_NOTES)
 
 
 def test_serve_end_to_end_in_a_subprocess(tmp_path: Path) -> None:
