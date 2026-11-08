@@ -1,0 +1,15 @@
+.git
+.github
+tests
+dist
+build
+*.egg-info
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+rover.zip
+rover.svg
+docs
+PORTING_NOTES.md

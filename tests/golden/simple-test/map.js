@@ -1,0 +1,1 @@
+const map = {"path":".","root":{"main.tf":{"type":"file","name":"main.tf","children":{"output.hello_world":{"type":"output","name":"hello_world","line":1}},"source":"./main.tf"}}}

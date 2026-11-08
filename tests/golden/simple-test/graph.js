@@ -1,0 +1,1 @@
+const graph = {"nodes":[{"data":{"id":".","label":".","type":"basename"},"classes":"basename"},{"data":{"id":"main.tf","label":"main.tf","type":"file","parent":".","parentColor":"lightgray"},"classes":"fname"},{"data":{"id":"output.hello_world","label":"hello_world","type":"output","parent":"main.tf","parentColor":"lightgray"},"classes":"output"}],"edges":[]}

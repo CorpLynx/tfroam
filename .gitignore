@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+rover.svg
+rover.zip
+*.egg-info/
+/dist/
+/build/
+!tests/golden/**/rover.svg
