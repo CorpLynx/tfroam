@@ -100,6 +100,9 @@ class Variable:
     description: str = ""
     default: Any = None
     required: bool = False
+    # Not part of terraform-config-inspect's Variable (never serialized); read only so
+    # tfroam.redact can hide the default of a ``sensitive = true`` variable.
+    sensitive: bool = False
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {"name": self.name}
@@ -541,6 +544,12 @@ class _Loader:
                 self.error("Variables not allowed", "Variables may not be used here.")
         else:
             var.required = True
+        if "sensitive" in block.attrs:
+            # terraform-config-inspect ignores this attribute, so no diagnostic either way.
+            try:
+                var.sensitive = _as_bool(block.attrs["sensitive"])
+            except NotConstant:
+                var.sensitive = True  # can't tell: assume sensitive
 
     def _output(self, block: _Block, pos: SourcePos) -> None:
         out = Output(name=block.labels[0], pos=pos)
