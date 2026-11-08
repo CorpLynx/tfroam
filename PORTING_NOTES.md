@@ -263,8 +263,8 @@ streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 
   standalone mode exits before image mode (unchanged behaviour).
 - **Image mode address:** with `-genImage` and no explicit `-ipPort`, the server binds `127.0.0.1:0` and the
   browser is pointed at `RoverServer.port`, the port actually bound, so image mode works while another Rover
-  holds port 9000. An explicit `-ipPort` is used as before. `server.start_server` still logs the requested
-  address (`Rover is running on 127.0.0.1:0`), so the CLI logs the bound address after it.
+  holds port 9000. An explicit `-ipPort` is used as before. `server.start_server` logs the address actually
+  bound (`Rover is running on 127.0.0.1:<port>`), not the requested `:0`.
 - **`-imagePath`** (default `rover.svg`, relative to the current directory like Go's `./rover.svg`) is passed
   to `screenshot.screenshot(output=...)`. An empty value is rejected before Terraform runs.
 - **Usage text:** `-tfPath` shows `(default "terraform" on PATH, else "/bin/terraform")`, which is what

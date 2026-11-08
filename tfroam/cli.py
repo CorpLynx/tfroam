@@ -314,8 +314,6 @@ def run(opts: Options) -> int:
 
         # Point the browser at the port actually bound (differs from ip_port when it ends in :0).
         browser_addr = f"{ip_port.rpartition(':')[0]}:{server.port}"
-        if browser_addr != ip_port:
-            log.info("Image server bound to %s", browser_addr)
 
         def take_screenshot() -> None:
             try:

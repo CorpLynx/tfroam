@@ -160,6 +160,10 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def start_server(ip_port: str, assets: Assets, frontend: Traversable | None = None) -> RoverServer:
-    """Bind the listening socket (the browser can connect as soon as this returns)."""
-    log.info("Rover is running on %s", ip_port)
-    return RoverServer(ip_port, assets, frontend)
+    """Bind the listening socket (the browser can connect as soon as this returns).
+
+    Logs the address actually bound, so a requested port of ``0`` shows the port the OS chose.
+    """
+    server = RoverServer(ip_port, assets, frontend)
+    log.info("Rover is running on %s:%d", ip_port.rpartition(":")[0], server.port)
+    return server
