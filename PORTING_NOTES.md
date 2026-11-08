@@ -64,9 +64,11 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - Gaps vs the Go loader: `*.tf.json` files (reported as an error, module not loaded), the legacy-HCL
   fallback parser, and constant arithmetic like `1 + 2` in a default.
 - Go panics when an output's `before_sensitive`/`after_sensitive` is not a bool (object-shaped
-  sensitivity). The port ignores non-bool markers instead; the value is left unmasked.
-- `generate_resource_overview` mutates `plan.output_changes` in place, as Go does; `plan.js` shows
-  the "Sensitive Value" placeholder because the plan is serialized afterwards.
+  sensitivity). The port originally ignored such markers; they are now walked like resource markers
+  (see "Security hardening" below).
+- `generate_resource_overview` mutates the plan in place, as Go does for outputs, so the plan Go
+  serialized as `plan.js` shows the "Sensitive Value" placeholder. (`plan.js` is no longer written; see
+  "Security hardening".)
 - `StateResource.values` is now `None` when absent (Go nil map) so empty-vs-missing matches.
 
 ## Step 4b: map (`tfroam/map.py`)
@@ -100,10 +102,11 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - **Zip:** every frontend file in the generated zip is byte-identical to the Go zip's (file order too),
   including the `index.html` rewrite. Go's `strings.Split(html, "</head>")` drops the closing `</head>`
   tag and the three injected script tags are separated by `\n\t\t`; both are reproduced. `plan.js` is
-  written but `index.html` does not load it (as in Go). The data files are JSON-equivalent to Go's;
+  written but `index.html` does not load it (as in Go); it has since been dropped (see "Security hardening"). The data files are JSON-equivalent to Go's;
   `graph.js` list order differs (see graph notes).
 - **Server:** stdlib `ThreadingHTTPServer`, no new dependency. `/health`, `/api/{plan,rso,map,graph}`
-  with `Access-Control-Allow-Origin: *`, an unknown `/api/x` answers 200 with Go's help text. The Go
+  with `Access-Control-Allow-Origin: *`, an unknown `/api/x` answers 200 with Go's help text. (`/api/plan`
+  and the CORS header have since been removed; see "Security hardening".) The Go
   version sets `Content-Type` after writing, so it is ignored and browsers sniff it; the port sends
   `application/json` properly. Requests are not logged (Go doesn't either).
 - **CLI:** Go-`flag` syntax (`-name value`, `-name=value`, `--name`, parsing stops at the first
@@ -180,3 +183,48 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - Motivation: on a real 61-resource, 3-module AWS plan, `local.name` and variable references account for
   roughly half of the 153 edges, which makes the picture hard to read. The frontend is unchanged.
 - An unknown value exits 1 with the list of valid ones.
+
+## Security hardening (beyond the port)
+
+These are deliberate divergences from the Go version. Before them, only sensitive *outputs* were masked:
+a resource attribute marked sensitive (for example a database `password`) was copied into `rso.js`,
+`plan.js` and `GET /api/rso`, and the API answered with `Access-Control-Allow-Origin: *`.
+
+- **Redaction (`tfroam/redact.py`).** Unless `-showSensitive`, `generate_resource_overview` calls
+  `redact_plan` before building anything, and `redact_module` on every `.tf` module it loaded. Every
+  redacted value becomes `"Sensitive Value"`, the placeholder Go used for outputs. Rules
+  (`redact_value(value, marker)`):
+  - `true` marks the whole value (or subtree); `false`, `null`, `{}` and `[]` mark nothing.
+  - An object marker on an object recurses per key; keys the marker does not name are kept, and marker
+    keys missing from the value add nothing. A list marker on a list recurses per index; elements past
+    the end of the marker are kept.
+  - A marker whose shape doesn't match the value (object marker on a string, list marker on an object, a
+    truthy non-bool scalar) replaces the whole value if it marks anything.
+  - Applied to: `resource_changes[].change.before/after` against `before_sensitive`/`after_sensitive`;
+    `output_changes` the same way (object-shaped output markers, on which Go panics, now redact the
+    marked attributes); `prior_state` and `planned_values` resource `values` against `sensitive_values`
+    in every module (a whole-value `true` keeps the keys and masks every value, because rso skips
+    resources whose `values` are absent); state outputs flagged `sensitive`; the `default` of variables
+    declared `sensitive = true`, both in the plan `configuration` and in the `.tf` data from
+    `tfroam/config.py`; literal module-call arguments bound to a sensitive child variable; plan
+    `variables` values of sensitive root variables.
+  - The markers themselves are kept, so the UI can still tell which attributes are sensitive.
+  - `config.Variable` gained a `sensitive` field (parsed from the block, never serialized:
+    terraform-config-inspect has no such field, so the `map`/`rso` JSON shape is unchanged). A
+    non-constant `sensitive` expression counts as sensitive.
+  - The plan models already kept `sensitive_values` and the change `*_sensitive` fields, so nothing had to
+    be retained specially. None of the Go goldens has sensitive resource data, so every golden
+    comparison is unchanged; `tests/fixtures/sensitive-test/plan.json` is hand-written (not from Go).
+- **No published plan.** The bundled UI only fetches `/api/rso`, `/api/map` and `/api/graph`, and the
+  standalone `index.html` never loaded `plan.js`. `/api/plan` is removed (it now gets the help text,
+  which lists `rso, map, graph`), and the zip no longer contains `plan.js`. `Assets.plan` stays for
+  internal use; `Assets.documents()` returns only the three published documents. Tests that compared
+  the zip's `plan.js` or `/api/plan` with the Go golden now assert they are absent instead; the plan
+  goldens are still used as test inputs and by `tests/test_plan.py`/`test_rso.py`.
+- **No CORS header.** `Access-Control-Allow-Origin: *` is gone; the UI is served from the same origin.
+- **DNS-rebinding guard.** When `-ipPort` binds a loopback address (127.0.0.0/8, `::1` or `localhost`),
+  requests whose `Host` hostname is not `localhost`, `127.0.0.1`, `::1` (`[::1]`) or the bound host get
+  `403`; so do HTTP/1.1 requests without a `Host` header and requests with more than one. A wildcard or
+  non-loopback binding (the default `0.0.0.0:9000`, as used in Docker) is not filtered, because the
+  names it is reached under are unknown. `-genImage` points the browser at `127.0.0.1` or the bound
+  host, which are always allowed.
