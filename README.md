@@ -129,8 +129,13 @@ $ docker run --rm -it -p 9000:9000 -v "$(pwd):/src" --env-file ./.env im2nguyen/
 $ docker run --rm -it -v "$(pwd):/src" im2nguyen/rover -genImage true
 ```
 
-The image is Debian-based Python with `/bin/terraform` (copied from the official Terraform image) and
-Chromium. Pick a Terraform version with `--build-arg TF_VERSION=1.9.8`.
+The image is Debian-based Python (`python:3.12-slim`, pinned by digest) with `/bin/terraform` (copied from
+the official Terraform image) and Chromium. Pick a Terraform version with `--build-arg TF_VERSION=1.9.8`;
+the default, 1.5.5, is upstream's and the last MPL-2.0 Terraform release.
+
+The entrypoint is `rover -ipPort 0.0.0.0:9000`, so the server listens on all interfaces and `-p 9000:9000`
+works. Outside a container the default is `127.0.0.1:9000`. Your flags are appended after the entrypoint, and
+a later `-ipPort` overrides it, e.g. `docker run ... im2nguyen/rover -ipPort 0.0.0.0:8080` with `-p 8080:8080`.
 
 ## Flags
 

@@ -180,3 +180,26 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - Motivation: on a real 61-resource, 3-module AWS plan, `local.name` and variable references account for
   roughly half of the 153 edges, which makes the picture hard to read. The frontend is unchanged.
 - An unknown value exits 1 with the list of valid ones.
+## Docker, CI and packaging changes
+- **Entrypoint:** `ENTRYPOINT ["rover", "-ipPort", "0.0.0.0:9000"]`. The native `-ipPort` default is now
+  `127.0.0.1:9000`, which would make `docker run -p 9000:9000` unreachable; the entrypoint restores the
+  all-interfaces bind inside the container. Flags are applied in order, so a user's own `-ipPort` (appended
+  after the entrypoint) still wins. `-genImage` in the container therefore serves on 0.0.0.0:9000 internally,
+  as before.
+- **`TF_VERSION=1.5.5`** is kept: it is upstream's default at the pinned commit (`ARG TF_VERSION=1.5.5`) and
+  the last MPL-2.0 Terraform release (1.6+ is BUSL-1.1). Goldens and CI use 1.9.8; pass
+  `--build-arg TF_VERSION=...` for a newer one.
+- **Base image:** both Python stages use `python:3.12-slim@sha256:5e2bdb1b...` (the multi-arch OCI index
+  digest, read from the registry's `Docker-Content-Digest` header and checked against the body's SHA-256).
+  The `PYTHON_VERSION` build arg was removed because overriding the tag of a digest-pinned reference would be
+  silently ignored. `hashicorp/terraform:${TF_VERSION}` stays tag-based so the build arg keeps working.
+- **User:** the image still runs as root, as upstream does, so the bind-mounted `/src` stays writable for
+  `rover.zip`, `rover.svg` and `.terraform`.
+- **CI:** every action is pinned to a commit SHA with the version in a comment. The test matrix is Python
+  3.11 and 3.14 (single-version jobs stay on 3.12). The Docker job now starts the server detached with
+  `-p 9000:9000`, waits for `/health`, checks `/api/graph` is JSON and removes the container even on
+  failure. A new OpenTofu **smoke** job runs `rover -tfPath tofu -standalone true` on `simple-test` (one
+  output, no providers, so `tofu init` needs no downloads) and checks the zip has `index.html`.
+- **Dependabot:** weekly `pip`, `github-actions` and `docker` updates, minor and patch grouped per ecosystem.
+- **The image has still not been built locally (no Docker on the development machine);** the CI `docker`
+  job is the only build and run check.
