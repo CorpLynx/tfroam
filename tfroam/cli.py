@@ -15,18 +15,23 @@ import os
 import shutil
 import sys
 import threading
+import webbrowser
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal, TextIO
 
 from . import VERSION
-from .assets import RoverError, generate_assets
+from .assets import TfroamError, generate_assets
 from .export import generate_zip
 from .graph import validate_hide
 
 log = logging.getLogger("tfroam")
 
 Kind = Literal["str", "bool", "list"]
+
+# First arguments that name a command (tfroam/auto.py) instead of starting the visualizer's flags.
+# The flag parser stops at the first non-flag argument, so these never collided with a flag.
+SUBCOMMANDS = ("plan", "hook", "shell-init", "config")
 
 
 @dataclass(frozen=True)
@@ -39,7 +44,7 @@ class FlagSpec:
 
 
 DEFAULT_IP_PORT = "127.0.0.1:9000"
-IMAGE_IP_PORT = "127.0.0.1:0"  # -genImage without -ipPort: any free port, so a running Rover doesn't clash
+IMAGE_IP_PORT = "127.0.0.1:0"  # -genImage without -ipPort: any free port, so a running tfroam doesn't clash
 
 FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec(
@@ -50,15 +55,15 @@ FLAGS: tuple[FlagSpec, ...] = (
         default_text='"terraform" on PATH, else "/bin/terraform"',
     ),
     FlagSpec("workingDir", "str", ".", "Path to Terraform configuration"),
-    FlagSpec("name", "str", "rover", "Configuration name"),
-    FlagSpec("zipFileName", "str", "rover", "Standalone zip file name"),
+    FlagSpec("name", "str", "tfroam", "Configuration name"),
+    FlagSpec("zipFileName", "str", "tfroam", "Standalone zip file name"),
     FlagSpec(
         "ipPort",
         "str",
         DEFAULT_IP_PORT,
-        "IP and port for Rover server (with -genImage and no -ipPort, a free port on 127.0.0.1)",
+        "IP and port for the tfroam server (with -genImage and no -ipPort, a free port on 127.0.0.1)",
     ),
-    FlagSpec("imagePath", "str", "rover.svg", "Where -genImage writes the SVG"),
+    FlagSpec("imagePath", "str", "tfroam.svg", "Where -genImage writes the SVG"),
     FlagSpec("planPath", "str", "", "Plan file path"),
     FlagSpec("planJSONPath", "str", "", "Plan JSON file path"),
     FlagSpec("workspaceName", "str", "", "Workspace name"),
@@ -73,6 +78,7 @@ FLAGS: tuple[FlagSpec, ...] = (
     FlagSpec("tfLock", "bool", True, "Lock the state during plan; -tfLock=false skips the lock"),
     FlagSpec("tfRefresh", "bool", True, "Refresh state during plan; -tfRefresh=false skips the refresh"),
     FlagSpec("verbose", "bool", False, "Stream Terraform init, workspace and plan output to stderr"),
+    FlagSpec("open", "bool", False, "Open the page in your browser once the server is up"),
     FlagSpec("tfVarsFile", "list", "", "Path to *.tfvars files"),
     FlagSpec("tfVar", "list", "", "Terraform variable (key=value)"),
     FlagSpec("tfBackendConfig", "list", "", "Path to *.tfbackend files"),
@@ -91,10 +97,10 @@ class UsageError(Exception):
 class Options:
     tf_path: str = "/bin/terraform"
     working_dir: str = "."
-    name: str = "rover"
-    zip_file_name: str = "rover"
+    name: str = "tfroam"
+    zip_file_name: str = "tfroam"
     ip_port: str = DEFAULT_IP_PORT
-    image_path: str = "rover.svg"
+    image_path: str = "tfroam.svg"
     plan_path: str = ""
     plan_json_path: str = ""
     workspace_name: str = ""
@@ -109,6 +115,7 @@ class Options:
     tf_lock: bool = True
     tf_refresh: bool = True
     verbose: bool = False
+    open: bool = False
     tf_vars_files: list[str] = field(default_factory=list)
     tf_vars: list[str] = field(default_factory=list)
     tf_backend_configs: list[str] = field(default_factory=list)
@@ -137,6 +144,7 @@ _ATTRS = {
     "tfLock": "tf_lock",
     "tfRefresh": "tf_refresh",
     "verbose": "verbose",
+    "open": "open",
     "tfVarsFile": "tf_vars_files",
     "tfVar": "tf_vars",
     "tfBackendConfig": "tf_backend_configs",
@@ -144,7 +152,7 @@ _ATTRS = {
 }
 
 
-def usage_text(prog: str = "rover") -> str:
+def usage_text(prog: str = "tfroam") -> str:
     lines = [f"Usage of {prog}:"]
     for spec in sorted(FLAGS, key=lambda f: f.name):
         head = f"  -{spec.name}" if spec.kind == "bool" else f"  -{spec.name} string"
@@ -156,6 +164,13 @@ def usage_text(prog: str = "rover") -> str:
         elif spec.kind == "bool" and spec.default is True:
             text += " (default true)"  # as Go prints it; false defaults are not shown
         lines += [head, f"    \t{text}"]
+    lines += [
+        "",
+        "Commands (see docs/usage.md):",
+        "  tfroam plan [-chdir=DIR] [plan options]   run terraform plan, then open the plan",
+        "  tfroam shell-init zsh|bash|fish           shell hook: open plans automatically after terraform plan",
+        "  tfroam config [DIR] | config init         show or create the settings for automatic opening",
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -249,27 +264,27 @@ def configure_logging(stream: TextIO | None = None) -> None:
 
 def run(opts: Options) -> int:
     if opts.version:
-        print(f"Rover v{VERSION}")
+        print(f"tfroam v{VERSION}")
         return 0
 
-    log.info("Starting Rover...")
+    log.info("Starting tfroam...")
 
     # Everything that can be checked without Terraform is checked here, before init and plan.
     if opts.tfc_org or opts.tfc_workspace or opts.tfc_new_run:
-        raise RoverError("Terraform Cloud flags (-tfcOrg, -tfcWorkspace, -tfcNewRun) are not supported in this port")
+        raise TfroamError("Terraform Cloud flags (-tfcOrg, -tfcWorkspace, -tfcNewRun) are not supported in this port")
     hide = split_list(opts.hide)
     try:
         validate_hide(hide)
     except ValueError as exc:
-        raise RoverError(str(exc)) from exc
+        raise TfroamError(str(exc)) from exc
     want_image = opts.gen_image and not opts.standalone  # -standalone exits before image mode
     if want_image:
         from .screenshot import INSTALL_HINT, playwright_available
 
         if not playwright_available():
-            raise RoverError(INSTALL_HINT)
+            raise TfroamError(INSTALL_HINT)
         if not opts.image_path:
-            raise RoverError("-imagePath must not be empty")
+            raise TfroamError("-imagePath must not be empty")
 
     assets = generate_assets(
         working_dir=opts.working_dir,
@@ -294,7 +309,7 @@ def run(opts: Options) -> int:
         try:
             generate_zip(assets, filename)
         except OSError as exc:
-            raise RoverError(str(exc)) from exc
+            raise TfroamError(str(exc)) from exc
         log.info("Generated zip file: %s", filename)
         return 0
 
@@ -306,7 +321,7 @@ def run(opts: Options) -> int:
     try:
         server = start_server(ip_port, assets)
     except (OSError, ValueError) as exc:
-        raise RoverError(f"Could not start server: {exc}") from exc
+        raise TfroamError(f"Could not start server: {exc}") from exc
 
     image_error: list[Exception] = []
     if want_image:
@@ -324,6 +339,8 @@ def run(opts: Options) -> int:
                 server.shutdown()  # like Go: stop serving once the image is saved (or failed)
 
         threading.Thread(target=take_screenshot, daemon=True).start()
+    elif opts.open:
+        open_browser(ip_port, server.port)
 
     try:
         server.serve_forever()
@@ -334,15 +351,33 @@ def run(opts: Options) -> int:
 
     if want_image:
         if image_error:
-            raise RoverError(str(image_error[0]))
+            raise TfroamError(str(image_error[0]))
         log.info("Server shut down.")
     return 0
 
 
+def open_browser(ip_port: str, port: int) -> None:
+    """Open the served page. A wildcard bind is opened through loopback."""
+    host = ip_port.rpartition(":")[0].strip("[]")
+    if host in ("", "0.0.0.0", "::"):
+        host = "127.0.0.1"
+    url = f"http://{'[' + host + ']' if ':' in host else host}:{port}/"
+    try:
+        if not webbrowser.open(url):
+            log.info("Could not open a browser; open %s yourself.", url)
+    except webbrowser.Error as exc:
+        log.info("Could not open a browser (%s); open %s yourself.", exc, url)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     configure_logging()
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] in SUBCOMMANDS:
+        from . import auto
+
+        return auto.main(args)
     try:
-        opts = parse_args(sys.argv[1:] if argv is None else argv)
+        opts = parse_args(args)
     except UsageError as exc:
         if str(exc) == "help":
             sys.stderr.write(usage_text())
@@ -351,6 +386,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     try:
         return run(opts)
-    except RoverError as exc:
+    except TfroamError as exc:
         log.error("%s", exc)
         return 1

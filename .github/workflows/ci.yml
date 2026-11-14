@@ -75,7 +75,7 @@ jobs:
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
           cd "$(mktemp -d)"
-          /tmp/clean/bin/rover -version
+          /tmp/clean/bin/tfroam -version
           cp -r "$GITHUB_WORKSPACE/tests/fixtures/simple-test" wd
           python - <<'PY'
           import json, os, pathlib
@@ -83,8 +83,8 @@ jobs:
           text = (root / "tests/golden/simple-test/plan.js").read_text()
           pathlib.Path("plan.json").write_text(json.dumps(json.loads(text[text.index("=") + 1:])))
           PY
-          /tmp/clean/bin/rover -workingDir wd -planJSONPath plan.json -standalone true
-          python -c "import zipfile; assert 'index.html' in zipfile.ZipFile('rover.zip').namelist()"
+          /tmp/clean/bin/tfroam -workingDir wd -planJSONPath plan.json -standalone true
+          python -c "import zipfile; assert 'index.html' in zipfile.ZipFile('tfroam.zip').namelist()"
   opentofu:
     # Smoke test only: proves `-tfPath tofu` drives init/plan/show end to end. The goldens are Terraform's.
     name: OpenTofu smoke test
@@ -106,8 +106,8 @@ jobs:
         run: |
           cd "$(mktemp -d)"
           cp -r "$GITHUB_WORKSPACE/tests/fixtures/simple-test" wd
-          rover -tfPath tofu -workingDir wd -standalone true
-          python -c "import zipfile; assert 'index.html' in zipfile.ZipFile('rover.zip').namelist()"
+          tfroam -tfPath tofu -workingDir wd -standalone true
+          python -c "import zipfile; assert 'index.html' in zipfile.ZipFile('tfroam.zip').namelist()"
   docker:
     name: Docker image
     runs-on: ubuntu-latest
@@ -115,11 +115,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Build
-        run: docker build . -t im2nguyen/rover
+        run: docker build . -t tfroam
       - name: Version
-        run: docker run --rm im2nguyen/rover -version
+        run: docker run --rm tfroam -version
       - name: Terraform is where the original image has it
-        run: docker run --rm --entrypoint /bin/terraform im2nguyen/rover version
+        run: docker run --rm --entrypoint /bin/terraform tfroam version
       - name: Standalone from a plan file, using the README command shape
         run: |
           mkdir work && cp -r tests/fixtures/simple-test/. work/
@@ -128,26 +128,26 @@ jobs:
           text = pathlib.Path("tests/golden/simple-test/plan.js").read_text()
           pathlib.Path("work/plan.json").write_text(json.dumps(json.loads(text[text.index("=") + 1:])))
           PY
-          docker run --rm -v "$PWD/work:/src" im2nguyen/rover -planJSONPath=plan.json -standalone true
-          test -s work/rover.zip
+          docker run --rm -v "$PWD/work:/src" tfroam -planJSONPath=plan.json -standalone true
+          test -s work/tfroam.zip
       - name: Server is reachable through the port mapping (entrypoint binds 0.0.0.0)
         run: |
-          docker run -d --name rover-server -p 9000:9000 -v "$PWD/work:/src" im2nguyen/rover -planJSONPath=plan.json
+          docker run -d --name tfroam-server -p 9000:9000 -v "$PWD/work:/src" tfroam -planJSONPath=plan.json
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:9000/health; then ready=1; break; fi
             sleep 2
           done
           if [ -z "${ready:-}" ]; then
-            echo "Rover did not answer /health within 60 s" >&2
-            docker logs rover-server
+            echo "tfroam did not answer /health within 60 s" >&2
+            docker logs tfroam-server
             exit 1
           fi
           curl -fsS http://127.0.0.1:9000/api/graph -o graph.json
           python3 -c "import json; d = json.load(open('graph.json')); assert isinstance(d['nodes'], list), d"
       - name: Stop the server container
         if: always()
-        run: docker rm -f rover-server || true
+        run: docker rm -f tfroam-server || true
       - name: Image mode inside the container
         run: |
-          docker run --rm -v "$PWD/work:/src" im2nguyen/rover -planJSONPath=plan.json -genImage true
-          test -s work/rover.svg
+          docker run --rm -v "$PWD/work:/src" tfroam -planJSONPath=plan.json -genImage true
+          test -s work/tfroam.svg

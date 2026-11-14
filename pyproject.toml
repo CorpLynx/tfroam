@@ -33,14 +33,12 @@ dependencies = [
 
 [project.optional-dependencies]
 # Only -genImage needs a browser: also run `playwright install chromium`, or point
-# ROVER_BROWSER_PATH at an existing Chrome/Chromium.
+# TFROAM_BROWSER_PATH at an existing Chrome/Chromium.
 image = ["playwright>=1.40"]
 # playwright is here so mypy can see its types; the image tests skip when no browser is available.
 dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "build>=1.0", "playwright>=1.40"]
 
-# `rover` is the original command (README, Docker entrypoint, existing scripts); `tfroam` is the same program.
 [project.scripts]
-rover = "tfroam.cli:main"
 tfroam = "tfroam.cli:main"
 
 [project.urls]

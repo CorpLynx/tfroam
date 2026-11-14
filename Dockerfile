@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Same contract as the upstream Go image: `docker run ... im2nguyen/rover <flags>`.
+# Usage: `docker build . -t tfroam`, then `docker run ... tfroam <flags>` (the same shape as the upstream Go image).
 # - /bin/terraform exists (the default for -tfPath inside the container)
 # - /src is the working directory, mount your configuration there
 # - Chromium is installed for -genImage
@@ -29,9 +29,9 @@ COPY --from=terraform /bin/terraform /bin/terraform
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir "$(ls /tmp/tfroam-*.whl)[image]" && rm -f /tmp/*.whl
 # Use the system Chromium; Playwright's own browser download is not needed.
-ENV ROVER_BROWSER_PATH=/usr/bin/chromium
+ENV TFROAM_BROWSER_PATH=/usr/bin/chromium
 WORKDIR /src
-# Runs as root, as upstream: the bind-mounted /src must stay writable for rover.zip, rover.svg and .terraform.
+# Runs as root, as upstream: the bind-mounted /src must stay writable for tfroam.zip, tfroam.svg and .terraform.
 # Bind all interfaces so `-p 9000:9000` works (the native default is 127.0.0.1:9000). User flags are appended,
 # and a later -ipPort overrides this one.
-ENTRYPOINT ["rover", "-ipPort", "0.0.0.0:9000"]
+ENTRYPOINT ["tfroam", "-ipPort", "0.0.0.0:9000"]

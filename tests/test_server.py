@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tfroam.server import RoverServer, allowed_hosts_for, host_header_name, is_loopback, split_address
+from tfroam.server import TfroamServer, allowed_hosts_for, host_header_name, is_loopback, split_address
 
 from .assets_util import build_assets
 from .golden_util import GOLDEN, load_js
@@ -18,7 +18,7 @@ from .golden_util import GOLDEN, load_js
 
 @pytest.fixture
 def base_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    server = RoverServer("127.0.0.1:0", build_assets("random-test", tmp_path, monkeypatch))
+    server = TfroamServer("127.0.0.1:0", build_assets("random-test", tmp_path, monkeypatch))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.port}"
@@ -102,8 +102,8 @@ def _raw_get(port: int, host: str | None, path: str = "/api/rso", http10: bool =
 
 
 @pytest.fixture
-def loopback_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[RoverServer]:
-    server = RoverServer("127.0.0.1:0", build_assets("simple-test", tmp_path, monkeypatch))
+def loopback_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TfroamServer]:
+    server = TfroamServer("127.0.0.1:0", build_assets("simple-test", tmp_path, monkeypatch))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield server
@@ -116,7 +116,7 @@ def loopback_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
     "host",
     ["localhost", "localhost:{port}", "LOCALHOST:{port}", "127.0.0.1", "127.0.0.1:{port}", "[::1]:{port}", "[::1]"],
 )
-def test_host_guard_allows_loopback_names(loopback_server: RoverServer, host: str) -> None:
+def test_host_guard_allows_loopback_names(loopback_server: TfroamServer, host: str) -> None:
     port = loopback_server.port
     assert _raw_get(port, host.format(port=port)) == 200
     assert _raw_get(port, host.format(port=port), path="/") == 200
@@ -134,14 +134,14 @@ def test_host_guard_allows_loopback_names(loopback_server: RoverServer, host: st
         "localhost:x",
     ],
 )
-def test_host_guard_rejects_other_names(loopback_server: RoverServer, host: str) -> None:
+def test_host_guard_rejects_other_names(loopback_server: TfroamServer, host: str) -> None:
     port = loopback_server.port
     assert _raw_get(port, host.format(port=port)) == 403
     assert _raw_get(port, host.format(port=port), path="/") == 403
     assert _raw_get(port, host.format(port=port), path="/health") == 403
 
 
-def test_host_guard_missing_host(loopback_server: RoverServer) -> None:
+def test_host_guard_missing_host(loopback_server: TfroamServer) -> None:
     assert _raw_get(loopback_server.port, None) == 403  # HTTP/1.1 requires Host
     assert _raw_get(loopback_server.port, None, http10=True) == 200  # optional in HTTP/1.0
 
@@ -155,7 +155,7 @@ def test_allowed_hosts_for() -> None:
 
 
 def test_wildcard_binding_does_not_filter_hosts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    server = RoverServer("0.0.0.0:0", build_assets("simple-test", tmp_path, monkeypatch))
+    server = TfroamServer("0.0.0.0:0", build_assets("simple-test", tmp_path, monkeypatch))
     assert server.allowed_hosts is None
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

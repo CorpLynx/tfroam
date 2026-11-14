@@ -249,8 +249,8 @@ def get_plan(
             raise TerraformError(f"Unable to select workspace ({workspace_name}): {exc}") from exc
 
     log.info("Generating plan...")
-    with tempfile.TemporaryDirectory(prefix="rover") as tmp_dir:  # removed on exit
-        out = f"{tmp_dir}/roverplan-{int(time.time())}"
+    with tempfile.TemporaryDirectory(prefix="tfroam") as tmp_dir:  # removed on exit
+        out = f"{tmp_dir}/tfroamplan-{int(time.time())}"
         try:
             tf.plan(out, [f for f in tf_vars_files if f], [v for v in tf_vars if v], lock=tf_lock, refresh=tf_refresh)
         except TerraformError as exc:

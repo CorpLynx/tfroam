@@ -42,8 +42,8 @@
         </svg>
         <span class="bar-mode">{{ modeLabel }}</span>
       </button>
-      <!-- The id is what `rover -genImage` clicks. -->
-      <button id="saveGraph" type="button" class="btn" title="Download the whole graph as rover.svg" @click="$emit('save')">
+      <!-- The id is what `tfroam -genImage` clicks. -->
+      <button id="saveGraph" type="button" class="btn" title="Download the whole graph as tfroam.svg" @click="$emit('save')">
         Save SVG
       </button>
     </div>

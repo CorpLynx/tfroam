@@ -27,7 +27,6 @@ _CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
-    ".map": "application/json",
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
     ".png": "image/png",
@@ -81,7 +80,7 @@ def allowed_hosts_for(bind_host: str) -> frozenset[str] | None:
     return _LOOPBACK_NAMES | {bind_host.lower()}
 
 
-class RoverServer(ThreadingHTTPServer):
+class TfroamServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
@@ -99,7 +98,7 @@ class RoverServer(ThreadingHTTPServer):
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server: RoverServer
+    server: TfroamServer
     protocol_version = "HTTP/1.1"
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - signature fixed by the base class
@@ -159,11 +158,11 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(200, node.read_bytes(), ctype)
 
 
-def start_server(ip_port: str, assets: Assets, frontend: Traversable | None = None) -> RoverServer:
+def start_server(ip_port: str, assets: Assets, frontend: Traversable | None = None) -> TfroamServer:
     """Bind the listening socket (the browser can connect as soon as this returns).
 
     Logs the address actually bound, so a requested port of ``0`` shows the port the OS chose.
     """
-    server = RoverServer(ip_port, assets, frontend)
-    log.info("Rover is running on %s:%d", ip_port.rpartition(":")[0], server.port)
+    server = TfroamServer(ip_port, assets, frontend)
+    log.info("tfroam is running on %s:%d", ip_port.rpartition(":")[0], server.port)
     return server

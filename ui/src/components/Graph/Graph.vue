@@ -629,7 +629,7 @@ export default {
         this.applyScreenStyle();
       }
       const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
-      saveAs(blob, "rover.svg");
+      saveAs(blob, "tfroam.svg");
     },
   },
   mounted() {

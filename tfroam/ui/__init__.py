@@ -1,4 +1,4 @@
-"""The prebuilt Rover frontend, shipped as package data (no Node needed at runtime)."""
+"""The prebuilt tfroam frontend, shipped as package data (no Node needed at runtime)."""
 
 from __future__ import annotations
 

@@ -9,8 +9,8 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
-rover.zip
-rover.svg
+tfroam.zip
+tfroam.svg
 docs
 PORTING_NOTES.md
 # Frontend source: the image uses the prebuilt tfroam/ui/dist.
