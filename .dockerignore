@@ -13,3 +13,5 @@ rover.zip
 rover.svg
 docs
 PORTING_NOTES.md
+# Frontend source: the image uses the prebuilt tfroam/ui/dist.
+/ui

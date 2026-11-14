@@ -1,0 +1,185 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "variables": {
+    "db_password": {"value": "var-value-SECRET"},
+    "region": {"value": "us-east-1"}
+  },
+  "planned_values": {
+    "outputs": {
+      "conn": {"sensitive": true, "value": {"host": "db.example.com", "password": "planned-output-SECRET"}},
+      "region": {"sensitive": false, "value": "us-east-1"}
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_db_instance.db",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "db",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "username": "admin",
+            "password": "planned-SECRET",
+            "tags": {"env": "prod", "token": "planned-tag-SECRET"},
+            "ingress": [{"cidr": "10.0.0.0/8"}, {"cidr": "planned-cidr-SECRET"}]
+          },
+          "sensitive_values": {"password": true, "tags": {"token": true}, "ingress": [{}, {"cidr": true}]}
+        },
+        {
+          "address": "random_password.pw",
+          "mode": "managed",
+          "type": "random_password",
+          "name": "pw",
+          "provider_name": "registry.terraform.io/hashicorp/random",
+          "schema_version": 3,
+          "values": {"length": 16, "result": "planned-result-SECRET"},
+          "sensitive_values": true
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_db_instance.db",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "db",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "username": "admin",
+          "password": "before-SECRET",
+          "tags": {"env": "prod", "token": "before-tag-SECRET"},
+          "ingress": [{"cidr": "10.0.0.0/8"}, {"cidr": "before-cidr-SECRET"}]
+        },
+        "after": {
+          "username": "admin",
+          "password": "hunter2-SECRET",
+          "tags": {"env": "prod", "token": "after-tag-SECRET"},
+          "ingress": [{"cidr": "10.0.0.0/8"}, {"cidr": "after-cidr-SECRET"}]
+        },
+        "after_unknown": {},
+        "before_sensitive": {"password": true, "tags": {"token": true}, "ingress": [{}, {"cidr": true}]},
+        "after_sensitive": {"password": true, "tags": {"token": true}, "ingress": [{}, {"cidr": true}]}
+      }
+    },
+    {
+      "address": "random_password.pw",
+      "mode": "managed",
+      "type": "random_password",
+      "name": "pw",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"length": 16, "result": "whole-before-SECRET"},
+        "after": {"length": 16, "result": "whole-after-SECRET"},
+        "after_unknown": {},
+        "before_sensitive": true,
+        "after_sensitive": true
+      }
+    }
+  ],
+  "output_changes": {
+    "conn": {
+      "actions": ["update"],
+      "before": {"host": "db.example.com", "password": "output-before-SECRET"},
+      "after": {"host": "db.example.com", "password": "output-after-SECRET"},
+      "after_unknown": false,
+      "before_sensitive": {"password": true},
+      "after_sensitive": {"password": true}
+    },
+    "region": {
+      "actions": ["no-op"],
+      "before": "us-east-1",
+      "after": "us-east-1",
+      "after_unknown": false,
+      "before_sensitive": false,
+      "after_sensitive": false
+    }
+  },
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.9.8",
+    "values": {
+      "outputs": {
+        "conn": {"sensitive": true, "value": {"host": "db.example.com", "password": "prior-output-SECRET"}},
+        "region": {"sensitive": false, "value": "us-east-1"}
+      },
+      "root_module": {
+        "resources": [
+          {
+            "address": "aws_db_instance.db",
+            "mode": "managed",
+            "type": "aws_db_instance",
+            "name": "db",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "schema_version": 0,
+            "values": {
+              "username": "admin",
+              "password": "prior-SECRET",
+              "tags": {"env": "prod", "token": "prior-tag-SECRET"},
+              "ingress": [{"cidr": "10.0.0.0/8"}, {"cidr": "prior-cidr-SECRET"}]
+            },
+            "sensitive_values": {"password": true, "tags": {"token": true}, "ingress": [{}, {"cidr": true}]}
+          },
+          {
+            "address": "random_password.pw",
+            "mode": "managed",
+            "type": "random_password",
+            "name": "pw",
+            "provider_name": "registry.terraform.io/hashicorp/random",
+            "schema_version": 3,
+            "values": {"length": 16, "result": "prior-result-SECRET"},
+            "sensitive_values": true
+          }
+        ]
+      }
+    }
+  },
+  "configuration": {
+    "provider_config": {
+      "aws": {"name": "aws", "full_name": "registry.terraform.io/hashicorp/aws"},
+      "random": {"name": "random", "full_name": "registry.terraform.io/hashicorp/random"}
+    },
+    "root_module": {
+      "outputs": {
+        "conn": {
+          "sensitive": true,
+          "expression": {"references": ["aws_db_instance.db.password", "aws_db_instance.db"]}
+        },
+        "region": {"expression": {"references": ["var.region"]}}
+      },
+      "resources": [
+        {
+          "address": "aws_db_instance.db",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "db",
+          "provider_config_key": "aws",
+          "expressions": {
+            "username": {"constant_value": "admin"},
+            "password": {"references": ["var.db_password"]},
+            "tags": {"references": ["var.db_password"]}
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "random_password.pw",
+          "mode": "managed",
+          "type": "random_password",
+          "name": "pw",
+          "provider_config_key": "random",
+          "expressions": {"length": {"constant_value": 16}},
+          "schema_version": 3
+        }
+      ],
+      "variables": {
+        "db_password": {"default": "var-default-SECRET", "sensitive": true},
+        "region": {"default": "us-east-1"}
+      }
+    }
+  }
+}

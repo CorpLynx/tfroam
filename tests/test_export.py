@@ -27,9 +27,11 @@ def test_zip_has_ui_and_data(fixture: str, tmp_path: Path, monkeypatch: pytest.M
     with zipfile.ZipFile(out) as zf:
         assert zf.testzip() is None
         names = zf.namelist()
-        assert names[-4:] == ["plan.js", "rso.js", "map.js", "graph.js"]
+        # Go also wrote plan.js (never loaded by index.html); the port does not.
+        assert names[-3:] == ["rso.js", "map.js", "graph.js"]
+        assert "plan.js" not in names
         assert "index.html" in names and any(n.startswith("js/") for n in names)
-        for name in ("plan", "rso", "map"):
+        for name in ("rso", "map"):
             assert _read_js(zf, name) == load_js(GOLDEN / fixture / f"{name}.js")
         # graph list order is arbitrary in Go; compare by id
         got = _read_js(zf, "graph")
@@ -56,4 +58,4 @@ def test_frontend_files_are_all_included(tmp_path: Path, monkeypatch: pytest.Mon
     generate_zip(build_assets("simple-test", tmp_path, monkeypatch), out)
     expected = {p.relative_to(Path(str(dist()))).as_posix() for p in Path(str(dist())).rglob("*") if p.is_file()}
     with zipfile.ZipFile(out) as zf:
-        assert expected == set(zf.namelist()) - {"plan.js", "rso.js", "map.js", "graph.js"}
+        assert expected == set(zf.namelist()) - {"rso.js", "map.js", "graph.js"}

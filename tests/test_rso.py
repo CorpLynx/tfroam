@@ -57,11 +57,13 @@ def test_show_sensitive_keeps_values(tmp_path: Path) -> None:
     assert change["after"] == "hunter2"
 
 
-def test_non_bool_sensitive_marker_is_ignored(tmp_path: Path) -> None:
-    # Go panics on a non-bool marker (object-shaped sensitivity); we leave the value alone.
+def test_object_sensitive_marker_on_a_string_masks_it(tmp_path: Path) -> None:
+    # Go panics on a non-bool marker (object-shaped sensitivity). The port walks it with
+    # tfroam.redact; a marker that doesn't fit the value's shape masks the whole value.
     plan = _tiny_plan(after_sensitive={"a": True})
     change = generate_resource_overview(plan, str(tmp_path)).to_json()["states"]["secret"]["change"]
-    assert change["after"] == "hunter2"
+    assert change["after"] == "Sensitive Value"
+    assert change["before"] == "old"
 
 
 def test_missing_config_dir_and_modules_json_still_builds(tmp_path: Path) -> None:

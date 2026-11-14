@@ -1,7 +1,8 @@
 # Fixtures and goldens are compared byte-for-byte / line-for-line: never convert line endings.
 * text=auto eol=lf
-# The bundled frontend must stay byte-identical to upstream's build.
+# The bundled frontend is build output (scripts/build_ui.sh from ui/): never rewrite it.
 tfroam/ui/dist/** -text
 *.png binary
+*.gif binary
 *.ico binary
 *.zip binary

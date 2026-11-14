@@ -26,6 +26,8 @@ from .plan import (
     PlanError,
     StateModule,
 )
+from .redact import SENSITIVE_PLACEHOLDER as SENSITIVE_PLACEHOLDER  # re-exported: the Go name lived here
+from .redact import redact_module, redact_plan
 
 log = logging.getLogger("tfroam")
 
@@ -33,7 +35,6 @@ RESOURCE_TYPE_RESOURCE = "resource"
 RESOURCE_TYPE_DATA = "data"
 RESOURCE_TYPE_MODULE = "module"
 RESOURCE_TYPE_OUTPUT = "output"
-SENSITIVE_PLACEHOLDER = "Sensitive Value"
 
 _CHILD_INDEX = re.compile(r"\[[^\[\]]*\]$")
 _BRACKETS = re.compile(r"\[[^\[\]]*\]")
@@ -214,13 +215,19 @@ def populate_module_state(rso: ResourcesOverview, module: StateModule, prior: bo
 
 
 def generate_resource_overview(plan: Plan, working_dir: str, show_sensitive: bool = False) -> ResourcesOverview:
-    """Build the overview. Mutates ``plan.output_changes`` like the Go version
-    (sensitive outputs are replaced in the plan itself, so ``plan.js`` shows the
-    placeholder too)."""
+    """Build the overview.
+
+    Unless ``show_sensitive``, sensitive values are redacted in ``plan`` itself
+    first (Go did this for outputs only) and in the ``.tf`` data loaded here,
+    so nothing built from either carries them.
+    """
     log.info("Generating resource overview...")
 
     if plan.configuration is None or plan.configuration.root_module is None:
         raise PlanError("plan has no configuration block")
+
+    if not show_sensitive:
+        redact_plan(plan)
 
     rso = ResourcesOverview()
     rc = rso.configs
@@ -251,13 +258,6 @@ def generate_resource_overview(plan: Plan, working_dir: str, show_sensitive: boo
 
     for output_name, output in plan.output_changes.items():
         entry = rs.setdefault(output_name, StateOverview())
-
-        if not show_sensitive:
-            if output.before_sensitive is True:
-                output.before = SENSITIVE_PLACEHOLDER
-            if output.after_sensitive is True:
-                output.after = SENSITIVE_PLACEHOLDER
-
         entry.change = copy.copy(output)
         entry.type = RESOURCE_TYPE_OUTPUT
 
@@ -279,5 +279,10 @@ def generate_resource_overview(plan: Plan, working_dir: str, show_sensitive: boo
 
         if config_id not in rc:
             rc[config_id] = ConfigOverview(resource_config=ConfigResource(name=resource.name, type=resource.type))
+
+    if not show_sensitive:
+        for cfg in rc.values():
+            if cfg.module is not None:
+                redact_module(cfg.module)
 
     return rso

@@ -3,7 +3,8 @@
 Port of ``screenshot.go``. The Go version drives Chrome with chromedp: it opens the
 page, waits for the graph, clicks "Save Graph" (which downloads ``rover.svg``) and
 moves the download to ``./rover.svg``. Playwright does the same here and is an
-optional dependency (``pip install tfroam[image]``).
+optional dependency (``pip install tfroam[image]``). The CLI passes ``-imagePath``
+(default ``rover.svg``) as ``output`` and the address the server actually bound.
 """
 
 from __future__ import annotations

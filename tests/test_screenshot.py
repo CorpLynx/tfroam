@@ -59,19 +59,67 @@ def test_image_mode_serves_then_shuts_down(
     addr = _free_addr()
     seen: dict[str, Any] = {}
 
-    def fake_screenshot(ip_port: str, *a: Any, **k: Any) -> None:
-        seen["addr"] = ip_port
-        with urllib.request.urlopen(f"http://{ip_port}/health") as resp:  # the server must be up already
-            seen["health"] = resp.read()
-        Path("rover.svg").write_text("<svg/>")
-
+    fake_screenshot = _recording_screenshot(seen)
     monkeypatch.setattr(screenshot, "screenshot", fake_screenshot)
     monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
     wd = Path(__file__).parent / "fixtures" / "simple-test"
     code = cli.main(["-workingDir", str(wd), "-planJSONPath", str(plan_json), "-ipPort", addr, "-genImage", "true"])
-    assert code == 0 and seen == {"addr": addr, "health": b'{"alive": true}'}
+    assert code == 0 and seen == {"addr": addr, "health": b'{"alive": true}', "output": "rover.svg"}  # as given
     assert (tmp_path / "rover.svg").exists()
     assert "Server shut down." in capsys.readouterr().err
+
+
+def _recording_screenshot(seen: dict[str, Any]) -> Any:
+    def fake_screenshot(ip_port: str, output: str = "", **k: Any) -> None:
+        seen["addr"] = ip_port
+        seen["output"] = output
+        with urllib.request.urlopen(f"http://{ip_port}/health") as resp:  # the server must be up already
+            seen["health"] = resp.read()
+        Path(output).write_text("<svg/>")
+
+    return fake_screenshot
+
+
+def test_image_mode_without_ip_port_uses_a_free_loopback_port(
+    plan_json: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import socket
+
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(screenshot, "screenshot", _recording_screenshot(seen))
+    monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
+    wd = Path(__file__).parent / "fixtures" / "simple-test"
+    # A Rover already serving on the default port must not matter. If 9000 can't be taken here,
+    # something else holds it, which is the same situation.
+    with socket.socket() as busy:
+        try:
+            busy.bind(("127.0.0.1", 9000))
+            busy.listen()
+        except OSError:
+            pass
+        assert cli.main(["-workingDir", str(wd), "-planJSONPath", str(plan_json), "-genImage"]) == 0
+    host, _, port = seen["addr"].rpartition(":")
+    assert host == "127.0.0.1" and int(port) not in (0, 9000)  # the port actually bound
+    assert seen["health"] == b'{"alive": true}'
+
+
+def test_image_path_flag_sets_the_output(plan_json: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "out").mkdir()
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(screenshot, "screenshot", _recording_screenshot(seen))
+    monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
+    wd = Path(__file__).parent / "fixtures" / "simple-test"
+    argv = ["-workingDir", str(wd), "-planJSONPath", str(plan_json), "-genImage", "-imagePath", "out/graph.svg"]
+    assert cli.main(argv) == 0
+    assert seen["output"] == "out/graph.svg" and (tmp_path / "out" / "graph.svg").exists()
+    assert not (tmp_path / "rover.svg").exists()
+
+
+def test_empty_image_path_is_rejected(plan_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
+    assert cli.main(["-planJSONPath", str(plan_json), "-genImage", "-imagePath", ""]) == 1
 
 
 def test_image_failure_exits_nonzero(

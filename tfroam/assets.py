@@ -13,7 +13,9 @@ from .plan import Plan, PlanError
 from .rso import ResourcesOverview, generate_resource_overview
 from .terraform import TerraformError, get_plan
 
-DOCUMENT_NAMES = ("plan", "rso", "map", "graph")
+# The documents the frontend reads. The plan is kept on ``Assets`` but never
+# published: the UI does not use it and it carries far more data than it needs.
+DOCUMENT_NAMES = ("rso", "map", "graph")
 
 
 class RoverError(RuntimeError):
@@ -28,9 +30,8 @@ class Assets:
     graph: Graph
 
     def documents(self) -> dict[str, Any]:
-        """The four JSON documents the frontend reads, keyed by name."""
+        """The JSON documents the frontend reads (``rso``, ``map``, ``graph``), keyed by name."""
         return {
-            "plan": self.plan.to_json(),
             "rso": self.rso.to_json(),
             "map": self.map.to_json(),
             "graph": self.graph.to_json(),
@@ -49,6 +50,10 @@ def generate_assets(
     tf_backend_configs: Sequence[str] = (),
     show_sensitive: bool = False,
     hide: Sequence[str] = (),
+    tf_upgrade: bool = False,
+    tf_lock: bool = True,
+    tf_refresh: bool = True,
+    verbose: bool = False,
 ) -> Assets:
     try:
         plan = get_plan(
@@ -60,6 +65,10 @@ def generate_assets(
             tf_vars_files=tf_vars_files,
             tf_vars=tf_vars,
             tf_backend_configs=tf_backend_configs,
+            tf_upgrade=tf_upgrade,
+            tf_lock=tf_lock,
+            tf_refresh=tf_refresh,
+            verbose=verbose,
         )
     except (TerraformError, PlanError) as exc:
         raise RoverError(f"Unable to parse Plan: {exc}") from exc
