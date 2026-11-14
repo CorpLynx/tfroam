@@ -1,0 +1,187 @@
+/* Page-wide rules. Colours come from theme.js as --c-* custom properties. */
+
+:root {
+  /* Avenir is also the graph's label face (upstream's choice), so page and canvas match.
+     Everything is a system font: the page loads nothing from the network. */
+  --font-ui: "Avenir Next", Avenir, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --bar-h: 44px;
+  --side-w: 300px;
+  --detail-w: 400px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  font: 13px/1.45 var(--font-ui);
+  color: var(--c-ink);
+  background: var(--c-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+::selection {
+  color: var(--c-on-accent);
+  background: var(--c-accent);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Plan actions: Terraform's symbol on the action colour. */
+.act {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  font: 700 11px/1 var(--font-mono);
+  color: #fff;
+  background: var(--c-none);
+  border-radius: 3px;
+}
+
+.act-create {
+  background: var(--c-create);
+}
+
+.act-update {
+  background: var(--c-update);
+}
+
+.act-delete {
+  background: var(--c-delete);
+}
+
+.act-replace {
+  color: var(--c-on-replace);
+  background: var(--c-replace);
+}
+
+.act-read {
+  color: var(--c-ink);
+  background: var(--c-data-soft);
+  box-shadow: inset 0 0 0 1px var(--c-data);
+}
+
+.act-no-op {
+  color: var(--c-muted);
+  background: var(--c-surface);
+  box-shadow: inset 0 0 0 1px var(--c-box-line);
+}
+
+/* Things that are not planned changes: a small outlined square in the graph's colour for that kind. */
+.kind {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--c-surface);
+  box-shadow: inset 0 0 0 2px var(--c-box-line);
+}
+
+.kind-data {
+  background: var(--c-data-soft);
+  box-shadow: inset 0 0 0 2px var(--c-data);
+}
+
+.kind-output {
+  background: var(--c-output-soft);
+  box-shadow: inset 0 0 0 2px var(--c-output);
+}
+
+.kind-variable {
+  background: var(--c-variable-soft);
+  box-shadow: inset 0 0 0 2px var(--c-variable);
+}
+
+.kind-locals {
+  background: var(--c-local);
+  box-shadow: none;
+}
+
+.kind-module {
+  background: var(--c-accent-soft);
+  box-shadow: inset 0 0 0 2px var(--c-accent);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
+  color: var(--c-ink);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: 5px;
+}
+
+.btn:hover {
+  background: var(--c-sunken);
+}
+
+.btn-quiet {
+  background: none;
+  border-color: transparent;
+}
+
+.btn-icon {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn[disabled] {
+  color: var(--c-faint);
+  cursor: default;
+  background: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

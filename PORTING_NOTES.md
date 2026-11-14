@@ -95,7 +95,7 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 
 ## Step 5: server, standalone zip, CLI
 
-- **Frontend:** `tfroam/ui/dist` is upstream's committed `ui/dist` at the pinned commit, verbatim
+- **Frontend (superseded, see "UI changes from upstream"):** `tfroam/ui/dist` is upstream's committed `ui/dist` at the pinned commit, verbatim
   (MIT; see `LICENSE.rover`). A fresh `npm ci && npm run build` of the upstream source in this sandbox
   produced the same code, same file sizes and identical vendor/CSS bundles; only `app.js` got a different
   content hash (it only changes the `sourceMappingURL` comment). `scripts/build_ui.sh` redoes the build.
@@ -297,3 +297,81 @@ streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 
 - **Dependabot:** weekly `pip`, `github-actions` and `docker` updates, minor and patch grouped per ecosystem.
 - **The image has still not been built locally (no Docker on the development machine);** the CI `docker`
   job is the only build and run check.
+
+## UI changes from upstream
+
+The frontend is no longer upstream's bundle. Reason: on a real plan (223 resources, 4 accounts, 10 modules)
+the upstream page was hard to use. Measured in headless Chrome at 1600x1000 before changing anything:
+
+- moving the pointer across the graph put a dimming class on 953 elements for every node it crossed (flicker);
+- one mouse-wheel notch zoomed 2.5x (four notches: 40x), and the page could not be scrolled over the graph;
+- nodes were draggable and the whole graph sits inside one compound node, so a drag meant to pan moved a box;
+- the graph got 907x1000 px of a 11,186 px tall page; at fit, labels were 1.2 px high (0.5 px at 1100 px wide);
+- the details box started 824 px down the left column, under a legend that took a third of the width;
+- the resource list was below the graph; there was no search, and only 2 focusable elements on the page.
+
+**Build.** Upstream's `ui/` source at commit `6257a19a` is vendored in `ui/` (MIT, `ui/LICENSE`) and edited
+there; `scripts/build_ui.sh` runs `npm ci && npm run build` in it and copies `ui/dist` to `tfroam/ui/dist`.
+`package.json` and `package-lock.json` are upstream's, byte for byte, so the toolchain and every library
+version are the ones upstream's own bundle was built with (cytoscape 3.20.0, Vue 2.6.14). No dependency was
+added. `vue.config.js` is new: it turns source maps off (they were 4 MB of the wheel). `chota.min.css`, the
+provider icons and `cytoscape-node-html-label` are no longer used; the dist went from 20 files to 5.
+
+**Kept, because the Python side or the goldens rely on it** (pinned by `tests/test_ui_bundle.py`):
+
+- `#cytoscape-div` and `#saveGraph` (`tfroam/screenshot.py`). `#saveGraph` is now a `<button>`. A click that
+  arrives before the plan has loaded is remembered and runs when the graph is ready.
+- **The saved SVG is unchanged.** Upstream's cytoscape stylesheet is kept verbatim in
+  `ui/src/components/Graph/upstreamStyle.js`. The layout (klay, same options, same element order) is computed
+  with it, and "Save SVG" switches back to it for the export, so `test_real_browser_svg_matches_go_reference`
+  still passes against the Go reference. The on-screen sheet (`screenStyle.js`) only adds paint: colours,
+  opacity, interaction states. Two things to know if you edit it: node sizes are in `em` of `#cytoscape-div`,
+  whose font size must stay 16px; and anything that changes a node's size or label font changes the layout.
+- `index.html` keeps `<div id="app">` and absolute `="/..."` asset paths (`export.standalone_index`). The
+  bundle no longer contains images, so `export.standalone_js` has nothing to rewrite; it is left in place.
+- The page reads only `rso`, `map` and `graph`, from globals in standalone mode and from `/api/*` otherwise
+  (now loaded once in `ui/src/model.js` instead of once per component). The backend is untouched.
+- Nothing is fetched from another host; fonts are system fonts.
+
+**Changed behaviour.**
+
+- Layout: top bar (list toggle, search, theme, Save SVG), resource list on the left, graph in the rest,
+  details in a panel floating over the right of the graph (a bottom sheet under 700 px; under 900 px the list
+  opens over the graph). The page itself never scrolls.
+- Hover tints the node and its own lines and shows a tooltip with the address. Only a click selects.
+  A click on the background, a file or a type box clears the selection (upstream: only the directory or a
+  file did; a type box selected a nonexistent "resource").
+- Nodes cannot be dragged (`autoungrabify`). Wheel zoom is handled by the page: about 1.2x per notch,
+  proportional for trackpads, pinch supported. Zoom is limited to between 0.6x of "fit" and 2x.
+- Level of detail: below 11 px on screen, box titles are drawn as HTML labels of fixed size (outer boxes win
+  when two would overlap). The selected node gets an HTML ring of at least 18 px, and highlighted lines and
+  search outlines are re-sized after zooming so they stay about 2.5 px wide.
+- Selecting an instance (`x["a"]`, `x[0]`) highlights the lines of its block, which is where the graph
+  attaches them. A block's own instances are not listed as its connections.
+- Search over the addresses in `map` (every term must match). Selection from the list or search moves the
+  camera only if the node is off screen or too small to read.
+- Details panel, same data as upstream with these corrections:
+  - `false`, `0` and `""` are shown as such (upstream printed `null`, or the raw expression object);
+  - only attributes that are wholly unknown read `known after apply` (upstream replaced every key present in
+    `after_unknown`, including partly known maps such as `tags_all`);
+  - an instance shows its block's configuration with a link to the block (upstream: "Please check parent
+    resource"); a block lists its instances on the state tabs;
+  - `expressions` are shown one argument per row, and references that resolve to an address in the plan
+    are links; `address`, `mode`, `name`, `type` and `schema_version` rows are dropped (the header has them);
+  - root outputs show their planned value: `rso.states` stores them under the bare name, which upstream's
+    lookup (`output.<name>`) never found;
+  - a new Connections tab lists "depends on" and "used by" from the graph's edges.
+- Sensitive values: the page shows what the backend sends, so anything redacted reads `Sensitive Value`.
+  It does not read `*_sensitive` markers and has no way to reveal a value.
+- The title is `<directory> | tfroam` and the header no longer links to the upstream repository
+  (no external links on the page).
+
+**Not done / known limits.**
+
+- Verified in headless Chrome only (served, `file://` from the zip, `-genImage`); not in Firefox or Safari.
+- The graph itself has no keyboard navigation between nodes; the list and search are the keyboard route.
+- The klay layout and upstream's box sizes are unchanged (the price of an unchanged SVG), so a large plan
+  still fits the window only at a small scale; labels, search and "Show in graph" are how it is made readable.
+- A plan with many hundreds of boxes produces as many HTML labels when zoomed out; they are culled to the
+  viewport but not otherwise limited.
+- `export.standalone_js` and the `.map` content type in `server.py` are now unused by the bundle.

@@ -1,8 +1,9 @@
 # tfroam
 
 **tfroam** is an interactive [Terraform](https://www.terraform.io/) visualizer: a Python port of
-[im2nguyen/rover](https://github.com/im2nguyen/rover). The Go backend is rewritten in Python and the
-original Vue frontend is bundled unchanged, so you get the same visualization.
+[im2nguyen/rover](https://github.com/im2nguyen/rover). The Go backend is rewritten in Python and produces
+the same documents; the web page is Rover's Vue frontend, reworked to stay usable on plans with hundreds
+of resources (see [Using the page](#using-the-page)).
 
 The package is `tfroam`; the command is `rover` (as in the original, so existing scripts and Docker
 commands keep working) and `tfroam` is an alias for it.
@@ -16,7 +17,7 @@ Rover:
 3. serves an interactive configuration and state visualization on `127.0.0.1:9000`, writes a standalone
    `rover.zip`, or saves the graph as an SVG.
 
-![Rover screenshot](docs/screenshot.png)
+![tfroam showing a small plan: file list, graph and the details of a selected resource](docs/screenshot.png)
 
 ## Install
 
@@ -71,6 +72,35 @@ Terraform's own output is captured and only shown if a command fails, so a long 
 ```
 $ rover -verbose
 ```
+
+### Using the page
+
+The graph fills the window. The file and resource list is on the left; details open in a panel on the right.
+
+- **Select:** click a resource, module, output or data source (in the graph or the list). Its details open,
+  the things it depends on are joined to it by solid lines and the things that use it by dashed lines, and
+  everything else fades. Click the background, press `Esc` or close the panel to clear. Moving the pointer
+  over the graph only tints what is under it and shows its address; nothing else moves.
+- **Find:** press `/` and type any part of an address (`nat_gateway`, `module.vpc_dev`, several words narrow
+  it down). Matches are listed and outlined in the graph; `Enter` opens the first, the arrow keys walk the
+  list.
+- **Move around:** drag to pan, scroll or pinch to zoom, double-click a box (a file, a module, a resource
+  type) to zoom to it. The buttons in the corner zoom and fit the whole graph. "Show in graph" in the details
+  panel brings the selected item into view at a readable size.
+- **Read a big plan:** when the graph is zoomed out too far for its own labels, files, modules and resource
+  types get small fixed-size labels instead, and the key along the bottom counts what the plan contains
+  (`+` create, `~` update, `±` replace, `-` delete).
+- **Details:** *Config* shows the block's arguments, with references you can follow; *Current* and *Proposed*
+  show the state before and after (`known after apply` for values Terraform does not know yet, and a mark on
+  values that change); *Connections* lists what the item depends on and what uses it.
+- **Keyboard:** `Tab` reaches everything. In the list, the arrow keys move and open rows; with the graph
+  focused, the arrow keys pan, `+`/`-` zoom and `0` fits.
+- **Colours:** light or dark follows the system; the button next to "Save SVG" switches between auto, light
+  and dark. Animations are skipped when the system asks for reduced motion.
+- **Save SVG** downloads the whole graph as `rover.svg`, always in the original Rover style whatever is on
+  screen (this is also what `-genImage` saves).
+
+The page loads nothing from the network: no CDN, fonts or analytics.
 
 ### Run on a Terraform plan file
 
@@ -226,6 +256,9 @@ The Go version's flags, spelled the same way, plus a few additions (`-flag value
   show as `Sensitive Value` unless `-showSensitive` is given.
 - **No full plan is published:** `/api/plan` is gone and the standalone zip has no `plan.js` (the UI never
   read either).
+- **The page is redesigned** (see [Using the page](#using-the-page)); the Go version's is a legend and a
+  details box beside a fixed-height graph, with the resource list below. The data behind it and the saved
+  SVG are the same.
 - **API responses have no `Access-Control-Allow-Origin: *` header**; the UI is same-origin.
 - **DNS-rebinding guard:** on a loopback `-ipPort` (e.g. `127.0.0.1:9000`), requests with any `Host` other
   than `localhost`, `127.0.0.1`, `[::1]` or the bound host get `403`. A wildcard bind such as Docker's
@@ -242,9 +275,11 @@ $ ruff check . && ruff format --check . && mypy --strict tfroam tests && pytest
 
 The tests compare Rover's output with files produced by the original Go program
 (`tests/golden/`). To also run the test that uses a real Terraform, set `TERRAFORM_BIN` to its path.
-`scripts/build_ui.sh` rebuilds the bundled frontend from the pinned upstream commit (needs Node).
+The frontend source is in `ui/` (Vue 2, cytoscape). `scripts/build_ui.sh` rebuilds `tfroam/ui/dist` from it
+(needs Node and npm; `--no-install` reuses `ui/node_modules`). The built files are committed, so only people
+changing the page need Node; `tests/test_ui_bundle.py` checks what the Python side expects of the build.
 
 ## License
 
-MIT, as upstream. The bundled frontend and the file formats come from
-[im2nguyen/rover](https://github.com/im2nguyen/rover); see [LICENSE](LICENSE).
+MIT, as upstream. The frontend in `ui/` is derived from, and the file formats come from,
+[im2nguyen/rover](https://github.com/im2nguyen/rover); see [LICENSE](LICENSE) and [ui/LICENSE](ui/LICENSE).
