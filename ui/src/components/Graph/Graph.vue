@@ -7,6 +7,7 @@
     aria-label="Resource graph. Drag to pan, scroll to zoom. Arrow keys pan, plus and minus zoom, 0 fits the graph. Use the resource list or search to select a resource."
     @keydown="onKey"
     @wheel.capture="onWheel"
+    @pointerdown.capture="onPointerDown"
     @mouseleave="hideTip"
   >
     <cytoscape ref="cy" :config="config" :preConfig="preConfig"></cytoscape>
@@ -46,6 +47,8 @@ const CONTAINER_TYPES = ["basename", "file"];
 const LABEL_PX = 32;
 // Below this on-screen size the canvas label is unreadable and an HTML label is drawn instead.
 const HTML_LABEL_BELOW = 11;
+// Height of an HTML box label (11px text on a 15px line, 1px padding top and bottom).
+const LABEL_H = 17;
 const MAX_ZOOM = 2;
 const KEY_HEIGHT = 40;
 // "Show in graph" never zooms in further than this: labels are 16px here.
@@ -447,6 +450,52 @@ export default {
       const rect = this.$refs.wrap.getBoundingClientRect();
       this.zoomBy(Math.exp(-step), { x: e.clientX - rect.left, y: e.clientY - rect.top });
     },
+    // Mouse and pen drags pan here, not in Cytoscape. vue-cytoscape bundles its own Cytoscape
+    // (3.10), which refuses to pan a drag that starts inside a compound node, and nearly the
+    // whole graph sits inside the directory, file and module boxes. Touch keeps Cytoscape's own
+    // pan and pinch. A press that moves less than 4px stays a click (Cytoscape's tap threshold),
+    // and Cytoscape itself suppresses the tap once a drag passes that threshold.
+    onPointerDown(e) {
+      const cy = this.cy();
+      if (!cy || !this.rendered) return;
+      const touch = e.pointerType === "touch";
+      cy.userPanningEnabled(touch);
+      if (touch || e.button !== 0 || this.drag) return;
+      if (e.target.closest && e.target.closest(".graph-controls")) return;
+      this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+      window.addEventListener("pointermove", this.onPointerMove, true);
+      window.addEventListener("pointerup", this.onPointerUp, true);
+      window.addEventListener("pointercancel", this.onPointerUp, true);
+    },
+    onPointerMove(e) {
+      const d = this.drag;
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.x;
+      const dy = e.clientY - d.y;
+      if (!d.moved) {
+        if (dx * dx + dy * dy < 16) return;
+        d.moved = true;
+        this.$refs.wrap.classList.add("is-panning");
+        this.clearHover();
+        this.hideTip();
+        this.cy().stop(); // a running "zoom to" animation would fight the drag
+      }
+      d.x = e.clientX;
+      d.y = e.clientY;
+      this.cy().panBy({ x: dx, y: dy });
+    },
+    onPointerUp(e) {
+      const d = this.drag;
+      if (!d || e.pointerId !== d.id) return;
+      this.endDrag();
+    },
+    endDrag() {
+      this.drag = null;
+      window.removeEventListener("pointermove", this.onPointerMove, true);
+      window.removeEventListener("pointerup", this.onPointerUp, true);
+      window.removeEventListener("pointercancel", this.onPointerUp, true);
+      if (this.$refs.wrap) this.$refs.wrap.classList.remove("is-panning");
+    },
     onKey(e) {
       if (e.target !== this.$refs.wrap || e.ctrlKey || e.metaKey || e.altKey) return;
       const step = e.shiftKey ? 240 : 80;
@@ -484,6 +533,7 @@ export default {
       const far = cy.zoom() * LABEL_PX < HTML_LABEL_BELOW;
       const w = cy.width();
       const h = cy.height();
+      const ring = this.markerRect(cy);
 
       if (far !== this.farLabels && this.boxes) {
         this.farLabels = far;
@@ -503,9 +553,14 @@ export default {
           const text = isModule && textWidth(box.text) > maxWidth ? box.node.data("label") : box.text;
           let width = Math.min(maxWidth, textWidth(text));
           // A module's name sits on its top border, to the right; other labels in the top left corner.
-          const y = Math.round(isModule ? bb.y1 - 8 : bb.y1);
+          let y = Math.round(isModule ? bb.y1 - 8 : bb.y1);
           let x = Math.round(isModule ? bb.x2 - width - 6 : bb.x1);
-          const hits = (r) => x < r.x2 && x + width > r.x1 && y < r.y2 && y + 17 > r.y1;
+          // The selection ring is padded to stay visible when zoomed out, so it can reach over the title
+          // of the box the selected node sits in: lift that title to sit just above the ring.
+          if (ring && x < ring.x2 && x + width > ring.x1 && y < ring.y2 && y + LABEL_H > ring.y1) {
+            y = Math.round(ring.y1 - LABEL_H - 1);
+          }
+          const hits = (r) => x < r.x2 && x + width > r.x1 && y < r.y2 && y + LABEL_H > r.y1;
           let blockers = placed.filter(hits);
           if (blockers.length && isModule) {
             // Give way to the label on the left by shortening, if enough of the name stays readable.
@@ -515,7 +570,7 @@ export default {
             blockers = width >= 56 ? placed.filter(hits) : blockers;
           }
           if (blockers.length) return;
-          placed.push({ x1: x, y1: y, x2: x + width, y2: y + 17 });
+          placed.push({ x1: x, y1: y, x2: x + width, y2: y + LABEL_H });
           let el = pool.get(box.id);
           if (!el) {
             el = document.createElement("span");
@@ -535,20 +590,26 @@ export default {
 
       // A selected node is a few pixels wide when zoomed out: ring it at a size that can be seen.
       const marker = this.$refs.marker;
-      const sel = this.selectedId ? cy.getElementById(this.selectedId) : null;
-      if (!sel || sel.empty()) {
+      if (!ring) {
         marker.style.display = "none";
         return;
       }
-      const bb = sel.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
-      const mw = Math.max(bb.w + 8, 18);
-      const mh = Math.max(bb.h + 8, 18);
       marker.style.display = "block";
-      marker.style.width = `${Math.round(mw)}px`;
-      marker.style.height = `${Math.round(mh)}px`;
-      marker.style.transform = `translate(${Math.round(bb.x1 + bb.w / 2 - mw / 2)}px, ${Math.round(
-        bb.y1 + bb.h / 2 - mh / 2
-      )}px)`;
+      marker.style.width = `${ring.w}px`;
+      marker.style.height = `${ring.h}px`;
+      marker.style.transform = `translate(${ring.left}px, ${ring.top}px)`;
+    },
+    // Where the selection ring goes, on screen: the node plus 4px all round, at least 18px square.
+    // x1..y2 add the ring's 3px halo, for keeping labels clear of it.
+    markerRect(cy) {
+      const sel = this.selectedId ? cy.getElementById(this.selectedId) : null;
+      if (!sel || sel.empty()) return null;
+      const bb = sel.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
+      const w = Math.round(Math.max(bb.w + 8, 18));
+      const h = Math.round(Math.max(bb.h + 8, 18));
+      const left = Math.round(bb.x1 + bb.w / 2 - w / 2);
+      const top = Math.round(bb.y1 + bb.h / 2 - h / 2);
+      return { left, top, w, h, x1: left - 3, y1: top - 3, x2: left + w + 3, y2: top + h + 3 };
     },
 
     // ---- export ------------------------------------------------------------------------------
@@ -584,6 +645,7 @@ export default {
   beforeDestroy() {
     if (this.resizeObserver) this.resizeObserver.disconnect();
     if (this.overlayFrame) window.cancelAnimationFrame(this.overlayFrame);
+    this.endDrag();
     window.clearTimeout(this.lineTimer);
   },
 };
@@ -611,7 +673,8 @@ export default {
   cursor: grab;
 }
 
-#cytoscape-div:active {
+#cytoscape-div:active,
+.graph.is-panning #cytoscape-div {
   cursor: grabbing;
 }
 

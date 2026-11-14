@@ -313,7 +313,8 @@ the upstream page was hard to use. Measured in headless Chrome at 1600x1000 befo
 **Build.** Upstream's `ui/` source at commit `6257a19a` is vendored in `ui/` (MIT, `ui/LICENSE`) and edited
 there; `scripts/build_ui.sh` runs `npm ci && npm run build` in it and copies `ui/dist` to `tfroam/ui/dist`.
 `package.json` and `package-lock.json` are upstream's, byte for byte, so the toolchain and every library
-version are the ones upstream's own bundle was built with (cytoscape 3.20.0, Vue 2.6.14). No dependency was
+version are the ones upstream's own bundle was built with (Vue 2.6.14; cytoscape 3.20.0 is installed, but
+`vue-cytoscape` 1.0.8 bundles its own Cytoscape 3.10.1 and that is the copy the page runs). No dependency was
 added. `vue.config.js` is new: it turns source maps off (they were 4 MB of the wheel). `chota.min.css`, the
 provider icons and `cytoscape-node-html-label` are no longer used; the dist went from 20 files to 5.
 
@@ -341,7 +342,11 @@ provider icons and `cytoscape-node-html-label` are no longer used; the dist went
 - Hover tints the node and its own lines and shows a tooltip with the address. Only a click selects.
   A click on the background, a file or a type box clears the selection (upstream: only the directory or a
   file did; a type box selected a nonexistent "resource").
-- Nodes cannot be dragged (`autoungrabify`). Wheel zoom is handled by the page: about 1.2x per notch,
+- Nodes cannot be dragged (`autoungrabify`). Mouse and pen drags pan in `Graph.vue` itself (`onPointerDown`):
+  Cytoscape 3.10.1 will not pan a drag that starts inside a compound node, and nearly the whole graph is inside
+  the directory, file and module boxes, so with Cytoscape's own panning a drag only moved the view from empty
+  space. A press that moves less than 4 px is still a click. Touch keeps Cytoscape's own pan and pinch.
+  Wheel zoom is handled by the page: about 1.2x per notch,
   proportional for trackpads, pinch supported. Zoom is limited to between 0.6x of "fit" and 2x.
 - Level of detail: below 11 px on screen, box titles are drawn as HTML labels of fixed size (outer boxes win
   when two would overlap). The selected node gets an HTML ring of at least 18 px, and highlighted lines and
