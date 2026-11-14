@@ -1,0 +1,7 @@
+# Created when you run `rover` or `terraform plan` here.
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+plan.out
+plan.json
+terraform.tfstate*

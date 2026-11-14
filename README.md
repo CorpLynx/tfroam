@@ -17,7 +17,13 @@ Rover:
 3. serves an interactive configuration and state visualization on `127.0.0.1:9000`, writes a standalone
    `rover.zip`, or saves the graph as an SVG.
 
-![tfroam showing a small plan: file list, graph and the details of a selected resource](docs/screenshot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="tfroam showing a three-VPC AWS plan: the file list, the graph with a load balancer selected and its dependencies highlighted, and its details" src="docs/screenshot.png">
+</picture>
+
+The screenshots and animations on this page use the made-up network in [`docs/demo`](docs/demo) (three VPC
+modules, a transit gateway and a small web tier; it plans without an AWS account): `cd docs/demo && rover`.
 
 ## Install
 
@@ -84,9 +90,10 @@ The graph fills the window. The file and resource list is on the left; details o
 - **Find:** press `/` and type any part of an address (`nat_gateway`, `module.vpc_dev`, several words narrow
   it down). Matches are listed and outlined in the graph; `Enter` opens the first, the arrow keys walk the
   list.
-- **Move around:** drag to pan, scroll or pinch to zoom, double-click a box (a file, a module, a resource
-  type) to zoom to it. The buttons in the corner zoom and fit the whole graph. "Show in graph" in the details
-  panel brings the selected item into view at a readable size.
+- **Move around:** drag anywhere to pan (on a box or a resource too), scroll or pinch to zoom, double-click
+  anything (a resource, a file, a module, a resource type) to zoom to it. The buttons in the corner zoom and
+  fit the whole graph. "Show in graph" in the details panel brings the selected item into view at a readable
+  size.
 - **Read a big plan:** when the graph is zoomed out too far for its own labels, files, modules and resource
   types get small fixed-size labels instead, and the key along the bottom counts what the plan contains
   (`+` create, `~` update, `±` replace, `-` delete).
@@ -99,6 +106,21 @@ The graph fills the window. The file and resource list is on the left; details o
   and dark. Animations are skipped when the system asks for reduced motion.
 - **Save SVG** downloads the whole graph as `rover.svg`, always in the original Rover style whatever is on
   screen (this is also what `-genImage` saves).
+
+**Find an address.** Press `/` and type part of an address: matches are listed and outlined in the graph.
+Open one, then follow a reference in its configuration to the resource it points at.
+
+![Typing "orders" lists three matches; opening aws_db_instance.orders zooms to it, and clicking its db_subnet_group_name reference jumps to aws_db_subnet_group.prod](docs/search.gif)
+
+**Follow the dependencies.** Drag to pan, click a resource to see what it depends on (solid lines) and what
+uses it (dashed), and walk from item to item through its references or the *Connections* tab. `Esc` clears.
+
+![Dragging the graph, selecting aws_lb.web, following its security group reference, then using the Connections tab to reach an ingress rule](docs/navigate.gif)
+
+**Zoom in and out.** Scroll to zoom where the pointer is, until the labels are readable; the fit button
+brings the whole graph back, and a double-click zooms straight to one item.
+
+![Scrolling into module.vpc_egress until its resources are readable, panning, fitting the whole graph again, then double-clicking aws_db_instance.orders to zoom to it](docs/zoom.gif)
 
 The page loads nothing from the network: no CDN, fonts or analytics.
 
