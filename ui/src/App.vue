@@ -178,7 +178,7 @@ export default {
         this.message = "";
       })
       .catch(() => {
-        this.message = "The plan data could not be loaded. Check that rover is still running, then reload.";
+        this.message = "The plan data could not be loaded. Check that tfroam is still running, then reload.";
       });
   },
   mounted() {

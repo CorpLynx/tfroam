@@ -3,8 +3,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-rover.svg
-rover.zip
+tfroam.svg
+tfroam.zip
 *.egg-info/
 /dist/
 /build/

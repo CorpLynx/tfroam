@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tfroam.export import generate_zip, standalone_index, standalone_js
+from tfroam.export import generate_zip, standalone_index
 from tfroam.ui import dist
 
 from .assets_util import build_assets
@@ -49,13 +49,13 @@ def test_standalone_index_matches_go_rewrite() -> None:
     assert "</head>" not in out  # Go's Split drops the closing tag
 
 
-def test_standalone_js_makes_public_path_relative() -> None:
-    assert standalone_js(b'x=r.p+"img/a.png"') == b'x="./img/a.png"'
-
-
 def test_frontend_files_are_all_included(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     out = tmp_path / "out.zip"
     generate_zip(build_assets("simple-test", tmp_path, monkeypatch), out)
-    expected = {p.relative_to(Path(str(dist()))).as_posix() for p in Path(str(dist())).rglob("*") if p.is_file()}
+    root = Path(str(dist()))
+    expected = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
     with zipfile.ZipFile(out) as zf:
         assert expected == set(zf.namelist()) - {"rso.js", "map.js", "graph.js"}
+        # Everything but index.html is copied unchanged.
+        for name in expected - {"index.html"}:
+            assert zf.read(name) == (root / name).read_bytes(), name

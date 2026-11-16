@@ -166,12 +166,11 @@ Upstream: https://github.com/im2nguyen/rover @ 6257a19a32c0116eae05c91e3c295d07c
 - **CI** (`.github/workflows/ci.yml`): ruff, `ruff format --check`, `mypy --strict`, pytest on
   Linux/macOS/Windows x Python 3.11/3.13 (real-Terraform test enabled on Linux/macOS); a real-browser job
   where the screenshot tests must not skip; a wheel build + clean-venv install job; a Docker job.
-- **Names:** the distribution, the import package and a console command are all `tfroam` (`rover` was
+- **Names:** the distribution, the import package and the console command are all `tfroam` (`rover` was
   taken on PyPI; `tfroam` was free when checked but nothing is published yet, so re-check before the
-  first upload). The `rover` console command is kept as a second entry point for the same program, so the
-  README, the Docker entrypoint and existing scripts are unchanged. The original spec named the import
-  package `rover`; it was renamed so installing `tfroam` cannot collide with another distribution that
-  provides a top-level `rover` module.
+  first upload). A `rover` console command was kept at first as a second entry point; it was removed later
+  (see "Renamed to tfroam" below). The original spec named the import package `rover`; it was renamed so
+  installing `tfroam` cannot collide with another distribution that provides a top-level `rover` module.
 - Repo hygiene: `.gitignore` anchors `/dist/` and `/build/` so it cannot hide `tfroam/ui/dist`.
 
 ## Addition beyond the port: `-hide`
@@ -265,7 +264,7 @@ streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 
   browser is pointed at `RoverServer.port`, the port actually bound, so image mode works while another Rover
   holds port 9000. An explicit `-ipPort` is used as before. `server.start_server` logs the address actually
   bound (`Rover is running on 127.0.0.1:<port>`), not the requested `:0`.
-- **`-imagePath`** (default `rover.svg`, relative to the current directory like Go's `./rover.svg`) is passed
+- **`-imagePath`** (default `tfroam.svg` since the rename, relative to the current directory like Go's `./rover.svg`) is passed
   to `screenshot.screenshot(output=...)`. An empty value is rejected before Terraform runs.
 - **Usage text:** `-tfPath` shows `(default "terraform" on PATH, else "/bin/terraform")`, which is what
   `resolve_tf_path` does. Bool flags whose default is `true` print `(default true)` as Go's `flag` does;
@@ -275,7 +274,7 @@ streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 
   version failed that test before this change.
 
 ## Docker, CI and packaging changes
-- **Entrypoint:** `ENTRYPOINT ["rover", "-ipPort", "0.0.0.0:9000"]`. The native `-ipPort` default is now
+- **Entrypoint:** `ENTRYPOINT ["tfroam", "-ipPort", "0.0.0.0:9000"]` (`rover` before the rename). The native `-ipPort` default is now
   `127.0.0.1:9000`, which would make `docker run -p 9000:9000` unreachable; the entrypoint restores the
   all-interfaces bind inside the container. Flags are applied in order, so a user's own `-ipPort` (appended
   after the entrypoint) still wins. `-genImage` in the container therefore serves on 0.0.0.0:9000 internally,
@@ -288,11 +287,11 @@ streamed" in "Step 3" and the image-mode address and default `-ipPort` in "Step 
   The `PYTHON_VERSION` build arg was removed because overriding the tag of a digest-pinned reference would be
   silently ignored. `hashicorp/terraform:${TF_VERSION}` stays tag-based so the build arg keeps working.
 - **User:** the image still runs as root, as upstream does, so the bind-mounted `/src` stays writable for
-  `rover.zip`, `rover.svg` and `.terraform`.
+  `tfroam.zip`, `tfroam.svg` and `.terraform`.
 - **CI:** every action is pinned to a commit SHA with the version in a comment. The test matrix is Python
   3.11 and 3.14 (single-version jobs stay on 3.12). The Docker job now starts the server detached with
   `-p 9000:9000`, waits for `/health`, checks `/api/graph` is JSON and removes the container even on
-  failure. A new OpenTofu **smoke** job runs `rover -tfPath tofu -standalone true` on `simple-test` (one
+  failure. A new OpenTofu **smoke** job runs `tfroam -tfPath tofu -standalone true` on `simple-test` (one
   output, no providers, so `tofu init` needs no downloads) and checks the zip has `index.html`.
 - **Dependabot:** weekly `pip`, `github-actions` and `docker` updates, minor and patch grouped per ecosystem.
 - **The image has still not been built locally (no Docker on the development machine);** the CI `docker`
@@ -329,7 +328,9 @@ provider icons and `cytoscape-node-html-label` are no longer used; the dist went
   opacity, interaction states. Two things to know if you edit it: node sizes are in `em` of `#cytoscape-div`,
   whose font size must stay 16px; and anything that changes a node's size or label font changes the layout.
 - `index.html` keeps `<div id="app">` and absolute `="/..."` asset paths (`export.standalone_index`). The
-  bundle no longer contains images, so `export.standalone_js` has nothing to rewrite; it is left in place.
+  bundle no longer contains images, so its scripts reference nothing by path and are zipped unchanged
+  (upstream's public-path rewrite, `standalone_js`, was removed; `tests/test_ui_bundle.py` fails if a rebuild
+  brings asset references back).
 - The page reads only `rso`, `map` and `graph`, from globals in standalone mode and from `/api/*` otherwise
   (now loaded once in `ui/src/model.js` instead of once per component). The backend is untouched.
 - Nothing is fetched from another host; fonts are system fonts.
@@ -379,4 +380,59 @@ provider icons and `cytoscape-node-html-label` are no longer used; the dist went
   still fits the window only at a small scale; labels, search and "Show in graph" are how it is made readable.
 - A plan with many hundreds of boxes produces as many HTML labels when zoomed out; they are culled to the
   viewport but not otherwise limited.
-- `export.standalone_js` and the `.map` content type in `server.py` are now unused by the bundle.
+
+## Renamed to tfroam; opening plans automatically
+
+**One name.** The `rover` console command is gone; `tfroam` is the only one. Everything the user sees
+follows: the version line (`tfroam vX`), the log lines (`Starting tfroam...`, `tfroam is running on ...`),
+the usage header, `-name` and `-zipFileName` default `tfroam`, `-imagePath` defaults to `tfroam.svg`, Save SVG
+downloads `tfroam.svg` (and `screenshot.py` saves it), the browser variable is `TFROAM_BROWSER_PATH` (no
+fallback to `ROVER_BROWSER_PATH`), the Docker entrypoint runs `tfroam` and the README and CI tag the image
+`tfroam`. Internal names followed (`TfroamError`, `TfroamServer`). Earlier sections of these notes keep the
+names that were current when they were written. What stays: the `map` document's `path` is still
+"Rover Visualization" (Go-identical, pinned by the goldens), the Go reference SVG is still
+`tests/golden/random-test/rover.svg`, and the upstream attribution.
+
+**`-open`.** Opens the served page in the default browser (`webbrowser`) once the server is bound. A wildcard
+bind (`0.0.0.0`, `::`) is opened through `127.0.0.1`. Not used with `-genImage` or `-standalone`.
+
+**Opening plans automatically (`tfroam/auto.py`).** Terraform has no post-plan hook, so this is a shell
+function (`tfroam shell-init zsh|bash|fish`) that wraps `terraform` and, when installed, `tofu`. Every command
+without a `plan` argument goes straight to the binary in the shell itself; a command line containing `plan`
+goes to `tfroam hook <binary> <args>`, which finds the real subcommand (the first argument that is not a
+global option such as `-chdir=DIR`) and `execvp`s the binary unchanged unless all of these hold: the
+subcommand is `plan`, there is no `-json`/`-help`, the config turns it on for the root, and stdin and stdout
+are terminals without `TF_IN_AUTOMATION` (or `TFROAM_AUTO=1`). A config error is reported in one line and the
+plain command runs.
+
+- **Config:** TOML via `tomllib` (no new dependency). Global: `$TFROAM_CONFIG`, else
+  `$XDG_CONFIG_HOME/tfroam/config.toml`, else `~/.config/tfroam/config.toml`, with `[auto] enabled`,
+  `roots`, `exclude` and `[view]`. Local: the nearest `.tfroam.toml` in the root or a parent, with
+  `[auto] enabled` and `[view]` (`roots`/`exclude` there are an error). Precedence for on/off:
+  `TFROAM_AUTO` > local `enabled` > global `enabled` filtered by `roots`/`exclude` > off. `[view]` merges
+  key by key, global then local. Unknown sections or keys and wrong types are errors, since they are
+  almost always typos. `roots`/`exclude` entries are directories (the entry and everything below) or
+  globs, absolute or `~`-relative.
+- **The plan run:** Terraform runs as a child on the same terminal. While it runs, tfroam installs a no-op
+  SIGINT handler (not `SIG_IGN`, which the child would inherit across `exec`), so Ctrl-C reaches Terraform
+  and tfroam keeps waiting for it. Unless the user passed `-out`, `-out=<root>/.terraform/tfroam/last.tfplan`
+  is appended (directory 0700, file chmod 0600 afterwards: a saved plan holds every value). A user's relative
+  `-out` is resolved in the `-chdir` directory, as Terraform does. Exit codes 0 and 2 (`-detailed-exitcode`)
+  with a plan file on disk are viewed; anything else is returned as is. The command always ends with
+  Terraform's exit code; a viewer error is printed and does not replace it.
+- **Viewing:** `serve` builds `cli.Options` (`-planPath` the saved plan, `-workingDir` the root, `-tfPath`
+  the binary that planned, `[view]` settings, `ip_port` default `127.0.0.1:0` so concurrent plans don't
+  clash) and calls `cli.run`, which blocks until Ctrl-C. `page` writes the standalone page to
+  `<root>/.terraform/tfroam/page/` with `export.write_site` (the zip's files, unzipped; the directory is
+  replaced each time, 0700/0600, and a non-empty directory without `index.html` is refused) and opens it.
+- `tfroam plan [-chdir=DIR] [plan options]` does the same once, regardless of `[auto]`; `TFROAM_TF` picks the
+  binary. `tfroam config [DIR]` prints the files, the decision and its reason, and the view settings;
+  `tfroam config init [--global]` writes a commented starter file and never overwrites one.
+- The first argument `plan`, `hook`, `shell-init` or `config` selects these commands. The flag parser stops at
+  the first non-flag argument, so no flag combination changes meaning.
+- Tested in `tests/test_auto.py` (config precedence and validation, command-line splitting, `bash -n`/`zsh -n`
+  on the hook, the bash function's routing, exec pass-through cases, a stand-in `terraform` for the full
+  plan-and-view path in both modes) and by hand with Terraform 1.15.8 on `docs/demo`: through the zsh hook in
+  an interactive shell on a pseudo-terminal, `terraform plan -detailed-exitcode` served the plan on a free
+  port, Ctrl-C stopped tfroam and returned the prompt, and the shell saw exit code 2. Not tried in bash or
+  fish interactively, or on Windows (where the shell hook does not apply).

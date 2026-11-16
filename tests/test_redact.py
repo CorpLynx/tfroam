@@ -172,7 +172,7 @@ def test_standalone_zip_has_no_plan_js_and_no_secrets(tmp_path: Path, monkeypatc
     monkeypatch.chdir(tmp_path)
     args = ["-workingDir", str(FIXTURE), "-planJSONPath", str(FIXTURE / "plan.json"), "-standalone", "true"]
     assert main(args) == 0
-    with zipfile.ZipFile(tmp_path / "rover.zip") as zf:
+    with zipfile.ZipFile(tmp_path / "tfroam.zip") as zf:
         assert "plan.js" not in zf.namelist()
         assert "SECRET" not in _zip_text(zf)
         assert S in zf.read("rso.js").decode()
@@ -182,7 +182,7 @@ def test_standalone_zip_with_show_sensitive(tmp_path: Path, monkeypatch: pytest.
     monkeypatch.chdir(tmp_path)
     args = ["-workingDir", str(FIXTURE), "-planJSONPath", str(FIXTURE / "plan.json"), "-standalone", "true"]
     assert main([*args, "-showSensitive"]) == 0
-    with zipfile.ZipFile(tmp_path / "rover.zip") as zf:
+    with zipfile.ZipFile(tmp_path / "tfroam.zip") as zf:
         assert "plan.js" not in zf.namelist()
         assert "hunter2-SECRET" in zf.read("rso.js").decode()
 

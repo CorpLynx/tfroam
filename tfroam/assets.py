@@ -18,7 +18,7 @@ from .terraform import TerraformError, get_plan
 DOCUMENT_NAMES = ("rso", "map", "graph")
 
 
-class RoverError(RuntimeError):
+class TfroamError(RuntimeError):
     """A user-facing failure; the CLI prints the message and exits non-zero."""
 
 
@@ -71,17 +71,17 @@ def generate_assets(
             verbose=verbose,
         )
     except (TerraformError, PlanError) as exc:
-        raise RoverError(f"Unable to parse Plan: {exc}") from exc
+        raise TfroamError(f"Unable to parse Plan: {exc}") from exc
 
     try:
         rso = generate_resource_overview(plan, working_dir, show_sensitive)
     except PlanError as exc:
-        raise RoverError(str(exc)) from exc
+        raise TfroamError(str(exc)) from exc
     map_obj = generate_map(rso)
     try:
         graph = filter_graph(generate_graph(rso, map_obj), hide)
     except ValueError as exc:
-        raise RoverError(str(exc)) from exc
+        raise TfroamError(str(exc)) from exc
     return Assets(plan=plan, rso=rso, map=map_obj, graph=graph)
 
 

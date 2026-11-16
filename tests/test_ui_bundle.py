@@ -45,11 +45,20 @@ def test_index_references_only_its_own_assets() -> None:
     assert '="/' not in standalone_index(html)
 
 
+def test_scripts_load_no_assets_by_path() -> None:
+    # -standalone rewrites only index.html. If a rebuild makes webpack emit images or other assets again,
+    # the scripts would reference them through the public path ("/img/..."), which breaks under file://.
+    names = {p.relative_to(DIST).as_posix() for p in DIST.rglob("*") if p.is_file()}
+    assert not [n for n in names if n.startswith(("img/", "fonts/", "media/"))]
+    for path in _files(".js"):
+        assert b'.p+"' not in path.read_bytes(), path.name
+
+
 def test_image_mode_hooks_are_present() -> None:
-    # tfroam/screenshot.py waits for #cytoscape-div and clicks #saveGraph, which downloads rover.svg.
+    # tfroam/screenshot.py waits for #cytoscape-div and clicks #saveGraph, which downloads tfroam.svg.
     scripts = b"".join(p.read_bytes() for p in _files(".js"))
     assert b"cytoscape-div" in scripts
-    assert b"saveGraph" in _app_js() and b"rover.svg" in _app_js()
+    assert b"saveGraph" in _app_js() and b"tfroam.svg" in _app_js()
 
 
 def test_page_reads_only_the_published_documents() -> None:

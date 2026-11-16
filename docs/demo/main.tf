@@ -2,7 +2,7 @@
 # It plans without an AWS account: the provider is told to skip every credential and account
 # check, and nothing here reads from AWS (no data sources). Never apply it.
 #
-#   cd docs/demo && rover            # or: terraform init && terraform plan
+#   cd docs/demo && tfroam           # or: terraform init && terraform plan
 
 terraform {
   required_version = ">= 1.5.0"

@@ -41,7 +41,7 @@ def test_missing_playwright_gives_install_hint(
     monkeypatch.chdir(Path(__file__).parent / "fixtures" / "simple-test")
     code = cli.main(["-planJSONPath", str(plan_json), "-genImage", "true"])  # fails before serving anything
     assert code == 1
-    assert "pip install 'tfroam[image]'" in capsys.readouterr().err
+    assert "pipx inject tfroam playwright" in capsys.readouterr().err
 
 
 def _free_addr() -> str:
@@ -64,8 +64,8 @@ def test_image_mode_serves_then_shuts_down(
     monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
     wd = Path(__file__).parent / "fixtures" / "simple-test"
     code = cli.main(["-workingDir", str(wd), "-planJSONPath", str(plan_json), "-ipPort", addr, "-genImage", "true"])
-    assert code == 0 and seen == {"addr": addr, "health": b'{"alive": true}', "output": "rover.svg"}  # as given
-    assert (tmp_path / "rover.svg").exists()
+    assert code == 0 and seen == {"addr": addr, "health": b'{"alive": true}', "output": "tfroam.svg"}  # as given
+    assert (tmp_path / "tfroam.svg").exists()
     assert "Server shut down." in capsys.readouterr().err
 
 
@@ -90,7 +90,7 @@ def test_image_mode_without_ip_port_uses_a_free_loopback_port(
     monkeypatch.setattr(screenshot, "screenshot", _recording_screenshot(seen))
     monkeypatch.setattr(screenshot, "playwright_available", lambda: True)
     wd = Path(__file__).parent / "fixtures" / "simple-test"
-    # A Rover already serving on the default port must not matter. If 9000 can't be taken here,
+    # A tfroam already serving on the default port must not matter. If 9000 can't be taken here,
     # something else holds it, which is the same situation.
     with socket.socket() as busy:
         try:
@@ -114,7 +114,7 @@ def test_image_path_flag_sets_the_output(plan_json: Path, tmp_path: Path, monkey
     argv = ["-workingDir", str(wd), "-planJSONPath", str(plan_json), "-genImage", "-imagePath", "out/graph.svg"]
     assert cli.main(argv) == 0
     assert seen["output"] == "out/graph.svg" and (tmp_path / "out" / "graph.svg").exists()
-    assert not (tmp_path / "rover.svg").exists()
+    assert not (tmp_path / "tfroam.svg").exists()
 
 
 def test_empty_image_path_is_rejected(plan_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -140,7 +140,7 @@ def test_image_failure_exits_nonzero(
 
 
 def _browser_ready() -> bool:
-    """True when a browser can really be launched (Playwright's own, ROVER_BROWSER_PATH, or a system one)."""
+    """True when a browser can really be launched (Playwright's own, TFROAM_BROWSER_PATH, or a system one)."""
     if not playwright_available():
         return False
     from playwright.sync_api import sync_playwright
@@ -164,7 +164,7 @@ def _signature(svg: str) -> tuple[Counter[str], list[str], tuple[str, str]]:
     )
 
 
-@pytest.mark.skipif(not _browser_ready(), reason="needs Playwright and a Chromium (set ROVER_BROWSER_PATH)")
+@pytest.mark.skipif(not _browser_ready(), reason="needs Playwright and a Chromium (set TFROAM_BROWSER_PATH)")
 def test_real_browser_svg_matches_go_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
@@ -182,7 +182,7 @@ def test_real_browser_svg_matches_go_reference(tmp_path: Path, monkeypatch: pyte
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        out = tmp_path / "rover.svg"
+        out = tmp_path / "tfroam.svg"
         time.sleep(0.2)
         screenshot.screenshot(addr, out)
     finally:

@@ -48,9 +48,9 @@ def _wd() -> str:
 
 def test_defaults() -> None:
     o = parse_args([])
-    assert (o.tf_path, o.working_dir, o.name, o.zip_file_name) == ("/bin/terraform", ".", "rover", "rover")  # as Go
+    assert (o.tf_path, o.working_dir, o.name, o.zip_file_name) == ("/bin/terraform", ".", "tfroam", "tfroam")
     assert o.ip_port == "127.0.0.1:9000"  # Go: 0.0.0.0:9000; loopback unless asked (Docker passes -ipPort)
-    assert o.image_path == "rover.svg"
+    assert o.image_path == "tfroam.svg"
     assert not (o.standalone or o.gen_image or o.show_sensitive or o.version or o.tf_upgrade or o.verbose)
     assert o.tf_lock and o.tf_refresh
 
@@ -106,7 +106,7 @@ def test_usage_text_defaults_are_accurate() -> None:
 
     assert '(default "terraform" on PATH, else "/bin/terraform")' in help_for("tfPath")
     assert '(default "127.0.0.1:9000")' in help_for("ipPort")
-    assert '(default "rover.svg")' in help_for("imagePath")
+    assert '(default "tfroam.svg")' in help_for("imagePath")
     assert help_for("tfLock").endswith("(default true)") and help_for("tfRefresh").endswith("(default true)")
     for flag in ("tfUpgrade", "verbose", "genImage", "standalone"):  # false defaults: not printed, as in Go
         assert "(default" not in help_for(flag)
@@ -150,8 +150,8 @@ def test_bad_flags(argv: list[str]) -> None:
 
 def test_version_help_and_bad_usage_exit_codes(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["-version"]) == 0
-    assert capsys.readouterr().out.startswith("Rover v")
-    assert main(["-h"]) == 0 and "Usage of rover" in capsys.readouterr().err
+    assert capsys.readouterr().out.startswith("tfroam v")
+    assert main(["-h"]) == 0 and "Usage of tfroam" in capsys.readouterr().err
     assert main(["-nope"]) == 2 and "flag provided but not defined: -nope" in capsys.readouterr().err
 
 
@@ -220,13 +220,13 @@ def test_serve_end_to_end_in_a_subprocess(tmp_path: Path) -> None:
         err = proc.communicate(timeout=10)[1]
     # progress lines, in the original's order
     order = [
-        "Starting Rover",
+        "Starting tfroam",
         "Using provided JSON plan",
         "Generating resource overview",
         "Generating resource map",
         "Generating resource graph",
         "Done generating assets",
-        f"Rover is running on 127.0.0.1:{port}",
+        f"tfroam is running on 127.0.0.1:{port}",
     ]
     positions = [err.index(msg) for msg in order]
     assert positions == sorted(positions)
@@ -311,7 +311,7 @@ def test_missing_playwright_fails_before_terraform_runs(
     monkeypatch.setattr(screenshot, "playwright_available", lambda: False)
     assert main(["-tfPath", str(binary), "-workingDir", _wd(), "-genImage"]) == 1
     err = capsys.readouterr().err
-    assert "pip install 'tfroam[image]'" in err and "Initializing Terraform" not in err
+    assert "pipx inject tfroam playwright" in err and "Initializing Terraform" not in err
     assert _tf_args(log) == []
 
 
